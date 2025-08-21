@@ -1,0 +1,29 @@
+
+body {
+    background-color: #333;
+    color: white;
+    font-size: 13px;
+    letter-spacing: 0.2px;
+    line-height: 1.2;
+}
+
+.codehilite pre {
+    background: #262626;
+    line-height: 1;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.user-block {
+    padding: 15 10px;
+    background-color: #3a3a3a;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.ai-block {
+    padding: 15 10px;
+    background-color: #333;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}

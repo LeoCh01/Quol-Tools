@@ -1,0 +1,36 @@
+{
+  "ollama": {
+    "model": "gemma3"
+  },
+  "gemini": {
+    "model": "gemini-2.0-flash",
+    "apikey": ""
+  },
+  "groq": {
+    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "apikey": ""
+  },
+  "gpt": {
+    "mode": false,
+    "headless": false
+  },
+  "config": {
+    "auto_focus": false,
+    "history": true,
+    "max_history": 10
+  },
+  "commands": {
+    "/t": "translate any {0} text on screen to {1:english}",
+    "/s": "how do I solve this question",
+    "/e": "explain this in simple terms",
+    "/i": "what is this image?"
+  },
+  "_": {
+    "geometry": [
+      730,
+      10,
+      190,
+      135
+    ]
+  }
+}

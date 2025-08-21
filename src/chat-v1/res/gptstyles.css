@@ -1,0 +1,153 @@
+body {
+    font-size: 13px;
+    background-color: #2d2d2d;
+    color: #eaeaea;
+}
+
+.hljs-keyword {
+    color: #ff7b72;
+    font-weight: bold;
+}
+
+.hljs-title {
+    color: #9b63e4;
+}
+
+.hljs-built_in {
+    color: #ff7b72;
+}
+
+.hljs-number {
+    color: #61afef;
+}
+
+.hljs-string {
+    color: #98c379;
+}
+
+.hljs-comment {
+    color: #5c6370;
+    font-style: italic;
+}
+
+.hljs-params {
+    color: #abb2bf;
+}
+
+.hljs-variable {
+    color: #e06c75;
+}
+
+.hljs-function_ {
+    color: #56b6c2;
+}
+
+.hljs-type {
+    color: #e5c07b;
+}
+
+.hljs-operator {
+    color: #c678dd;
+}
+
+a {
+    color: #61afef;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+pre {
+    margin: 10px 0;
+    padding: 10px;
+    background-color: #1e1e1e;
+    border-radius: 8px;
+    overflow-x: auto;
+}
+
+hr {
+    border: none;
+    height: 1px;
+    background-color: #3c3c3c;
+    margin: 20px 0;
+}
+
+/* General styling for KaTeX elements */
+.katex-display {
+    display: block;
+    text-align: center;
+    margin: 1em 0;
+}
+
+/* Style for the inner math block (the whole formula) */
+.katex {
+    font-family: "KaTeX_Main", sans-serif;
+    font-size: 1.2em;
+    color: #000;
+}
+
+/* Style for MathML elements within the formula */
+.katex-mathml math {
+    font-family: "KaTeX_Main", sans-serif;
+}
+
+/* Specific styles for MathML symbols like integrals, sin, cos, etc. */
+.katex .mop {
+    font-size: 1.5em;
+    color: #007ACC;
+    padding: 0 0.1em;
+}
+
+/* Style for regular math symbols */
+.katex .mord {
+    font-size: 1.2em;
+    padding: 0 0.1em;
+}
+
+/* Style for operators like plus, minus, equals, etc. */
+.katex .mrel, .katex .mbin {
+    font-size: 1.3em;
+    color: #000;
+}
+
+/* Adjust the vertical alignment of struts (invisible elements controlling line height) */
+.katex .strut {
+    display: block;
+    height: 1.2em;
+}
+
+/* Add some custom margins for a more readable layout */
+.katex .mspace {
+    margin-left: 0.2em;
+    margin-right: 0.2em;
+}
+
+/* Style the base element, often used to adjust the height and spacing of individual symbols */
+.katex .base {
+    display: inline-block;
+}
+
+/* Optional: Add borders around the LaTeX math elements for debugging or testing */
+.katex-display {
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+
+.user-block {
+    padding: 10px 5px;
+    background-color: #3a3a3a;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.ai-block {
+    padding: 10px 5px;
+    background-color: #2d2d2d;
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+
