@@ -1,9 +1,9 @@
+import asyncio
 import base64
 import datetime
 
 import httpx
 from PySide6.QtCore import QTimer, QThread, Signal
-from qasync import asyncSlot
 import ollama
 
 
@@ -34,47 +34,49 @@ class AI:
 
         if model == 'ollama':
             self.ollama(d['model'], d['prompt'])
-            return
-        elif model == 'gemini':
-            self.handle_response(*self.gemini(d['model'], d['prompt'], d['apikey']))
-        elif model == 'groq':
-            self.handle_response(*self.groq(d['model'], d['prompt'], d['apikey']))
 
-    @asyncSlot()
-    async def handle_response(self, url, headers, data):
+        elif model == 'gemini':
+            url, headers, data = self.gemini(d['model'], d['prompt'], d['apikey'])
+            self.run_request_thread('gemini', d['prompt'], url, headers, data)
+
+        elif model == 'groq':
+            url, headers, data = self.groq(d['model'], d['prompt'], d['apikey'])
+            self.run_request_thread('groq', d['prompt'], url, headers, data)
+
+    def run_request_thread(self, model_type, prompt, url, headers, data):
         self.loading_counter = 0
 
         def on_loading():
             self.loading_counter += 0.1
             self.chat_window.set_output(f'<p>Loading... ({self.loading_counter:.1f}s)</p>')
 
-        try:
-            timer = QTimer()
-            timer.timeout.connect(on_loading)
-            timer.start(100)
+        self.loading_timer = QTimer()
+        self.loading_timer.timeout.connect(on_loading)
+        self.loading_timer.start(100)
 
-            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=30.0)) as client:
-                response = await client.post(url, headers=headers, json=data)
+        self.thread = RequestThread(model_type, url, headers, data)
+        self.thread.output_signal.connect(self.chat_window.set_output)
+        self.thread.finished_signal.connect(lambda text: self.on_request_finished(model_type, prompt, text))
+        self.thread.error_signal.connect(self.on_request_error)
 
-            timer.stop()
-            res = response.json()
+        self.thread.start()
 
-            if 'error' in res:
-                raise Exception(f'Error: {res["error"]["message"]}')
+    def on_request_finished(self, model, prompt, text):
+        self.loading_timer.stop()
+        self.text_content = text
+        self.add_history(model, text, None, False)
+        self.chat_window.set_output()
+        self.main_window.set_button_loading_state(False)
 
-            if self.current_type == 'gemini':
-                self.text_content = res['candidates'][0]['content']['parts'][0]['text']
-            elif self.current_type == 'groq':
-                self.text_content = res['choices'][0]['message']['content']
+        with open(self.main_window.window_info.path + f'/res/{model}.log', 'a', encoding='utf-8') as f:
+            f.write(f'{datetime.datetime.now()}\nQ: {prompt}\nA: {text.replace("\n\n", "\n")}\n\n')
 
-            self.add_history(self.current_type, self.text_content, None, False)
-            self.chat_window.set_output()
-        except Exception as e:
-            self.text_content = str(e)
-            self.chat_window.set_output(f'Error: {self.text_content}')
-            self.history.clear()
-        finally:
-            self.main_window.set_button_loading_state(False)
+    def on_request_error(self, error):
+        self.loading_timer.stop()
+        self.text_content = str(error)
+        self.chat_window.set_output(f'Error: {self.text_content}')
+        self.history.clear()
+        self.main_window.set_button_loading_state(False)
 
     def add_history(self, model, text, img_data, is_user):
         if self.is_hist:
@@ -206,6 +208,45 @@ class OllamaThread(QThread):
                 text += content
                 self.output_signal.emit(text)
 
+            self.finished_signal.emit(text)
+
+        except Exception as e:
+            self.error_signal.emit(str(e))
+
+
+class RequestThread(QThread):
+    output_signal = Signal(str)
+    finished_signal = Signal(str)
+    error_signal = Signal(str)
+
+    def __init__(self, model_type, url, headers, data, parent=None):
+        super().__init__(parent)
+        self.model_type = model_type
+        self.url = url
+        self.headers = headers
+        self.data = data
+
+    def run(self):
+        asyncio.run(self._make_request())
+
+    async def _make_request(self):
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(60.0, connect=30.0)) as client:
+                response = await client.post(self.url, headers=self.headers, json=self.data)
+
+            res = response.json()
+
+            if 'error' in res:
+                raise Exception(res['error']['message'])
+
+            if self.model_type == 'gemini':
+                text = res['candidates'][0]['content']['parts'][0]['text']
+            elif self.model_type == 'groq':
+                text = res['choices'][0]['message']['content']
+            else:
+                raise Exception('Unknown model type')
+
+            self.output_signal.emit(text)
             self.finished_signal.emit(text)
 
         except Exception as e:
