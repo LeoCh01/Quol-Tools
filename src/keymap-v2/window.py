@@ -1,8 +1,8 @@
 import os
-from PySide6.QtWidgets import (
-    QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit,
-    QWidget, QGroupBox
-)
+
+from PySide6.QtCore import QTimer
+from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QGroupBox
+
 import keyboard
 
 from lib.io_helpers import read_json, write_json
@@ -22,7 +22,7 @@ class MainWindow(QuolMainWindow):
         self.layout.addWidget(self.keymap_groupbox)
 
         self.add_button = QPushButton('+ Add Mapping Group')
-        self.add_button.clicked.connect(self.add_group_row)
+        self.add_button.clicked.connect(lambda: self.add_group_row())
         self.layout.addWidget(self.add_button)
 
         self.mapping_groups: dict[str, dict] = {}
@@ -30,13 +30,13 @@ class MainWindow(QuolMainWindow):
 
         self.mappings_path = window_info.path + '/res/keymaps.json'
 
-        self.load_mappings()
+        QTimer.singleShot(0, self.load_mappings)
 
     @staticmethod
     def make_send_callback(dst):
         return lambda: keyboard.send(dst)
 
-    def add_group_row(self):
+    def add_group_row(self, name="Unnamed", mappings=None):
         self.setFixedHeight(self.height() + 25)
         group_id = f"__group_{self.group_counter}"
         self.group_counter += 1
@@ -46,7 +46,7 @@ class MainWindow(QuolMainWindow):
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(0)
 
-        group_button = QPushButton("Unnamed")
+        group_button = QPushButton(name)
         group_button.setFixedWidth(100)
 
         enable_btn = QPushButton("✔")
@@ -64,10 +64,10 @@ class MainWindow(QuolMainWindow):
         self.mapping_groups[group_id] = {
             'widget': row_widget,
             'button': group_button,
-            'mappings': [],
+            'mappings': mappings if mappings else [],
             'enabled': False,
             'handles': {},
-            'name': "Unnamed"
+            'name': name
         }
 
         def toggle_enable():
@@ -143,25 +143,18 @@ class MainWindow(QuolMainWindow):
         self.setFixedHeight(self.height() - 25)
 
     def save_mappings(self):
-        data = {}
-        for group in self.mapping_groups.values():
-            name = group['name'] or "Unnamed"
-            mappings_dict = {src: dst for src, dst in group['mappings']}
-            data[name] = mappings_dict
+        data = {
+            group['name']: {src: dst for src, dst in group['mappings']}
+            for group in self.mapping_groups.values()
+        }
         write_json(self.mappings_path, data)
 
     def load_mappings(self):
         if not os.path.exists(self.mappings_path):
             return
-
         data = read_json(self.mappings_path)
         for name, mappings_dict in data.items():
-            self.add_group_row()
-            group_id = f"__group_{self.group_counter - 1}"
-            group = self.mapping_groups[group_id]
-            group['name'] = name
-            group['button'].setText(name)
-            group['mappings'] = list(mappings_dict.items())
+            self.add_group_row(name, list(mappings_dict.items()))
 
     def closeEvent(self, event):
         for group in self.mapping_groups.values():
