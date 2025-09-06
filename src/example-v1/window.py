@@ -14,7 +14,7 @@ class MainWindow(QuolMainWindow):
     """
 
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Temp', window_info, window_context, default_geometry=(300, 300, 100, 1))
+        super().__init__('Temp', window_info, window_context, default_geometry=(500, 500, 100, 1))
 
         # self.layout is the main layout of the window
         self.layout.addWidget(QLabel('Hello'))

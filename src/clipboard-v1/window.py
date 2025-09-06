@@ -18,7 +18,7 @@ class MainWindow(QuolMainWindow):
     copy_signal = Signal()
 
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Clipboard', window_info, window_context, default_geometry=(10, 130, 180, 1))
+        super().__init__('Clipboard', window_info, window_context, default_geometry=(10, 150, 180, 1))
 
         self.copy_signal.connect(self.on_copy)
 
