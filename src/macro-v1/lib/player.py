@@ -1,47 +1,96 @@
-from pynput.mouse import Controller as MouseController, Button
-from pynput.keyboard import Controller as KeyboardController, Key
 import json
 import time
+import threading
+
+from pynput.mouse import Controller as MouseController, Button
+from pynput.keyboard import Controller as KeyboardController
+from pynput import keyboard
+
+stop_event = threading.Event()
+pressed_keys = set()
+listener = None
+
+WM_KEYDOWN = 256
+WM_KEYUP = 257
 
 
-def play_macro(path, scale=1):
-    mouse = MouseController()
-    keyboard = KeyboardController()
+def win32_event_filter(msg, data):
+    if msg == WM_KEYDOWN:
+        pressed_keys.add(data.vkCode)
+
+        # 162 is VK_CONTROL, 27 is VK_ESCAPE
+        if 162 in pressed_keys and 27 in pressed_keys:
+            print("Ctrl + Esc detected. Stopping playback.")
+            stop_event.set()
+            listener.suppress_event()
+    elif msg == WM_KEYUP:
+        pressed_keys.discard(data.vkCode)
+
+
+def on_key_release(key):
+    pressed_keys.discard(key)
+
+
+def start_user_activity_monitor():
+    global listener
+    stop_event.clear()
+    listener = keyboard.Listener(win32_event_filter=win32_event_filter)
+    listener.start()
+    return listener
+
+
+def play_macro(path, rep=1, scale=1):
+    m = MouseController()
+    kb = KeyboardController()
 
     with open(path, "r") as f:
         events = json.load(f)
 
-    for i, event in enumerate(events):
-        if i > 0:
-            delay = event['time'] - events[i - 1]['time']
-            time.sleep(delay)
+    keyboard_listener = start_user_activity_monitor()
 
-        if event['type'] == 'move':
-            mouse.position = (event['pos'][0] * scale, event['pos'][1] * scale)
+    try:
+        for _ in range(rep):
+            if stop_event.is_set():
+                print("Playback interrupted by user.1")
+                break
 
-        elif event['type'] == 'click':
-            mouse.position = (event['pos'][0] * scale, event['pos'][1] * scale)
-            btn = Button.left if 'left' in event['btn'] else Button.right
-            if event['pressed']:
-                mouse.press(btn)
-            else:
-                mouse.release(btn)
+            for i, event in enumerate(events):
+                if stop_event.is_set():
+                    print("Playback interrupted by user.2")
+                    return
 
-        elif event['type'] == 'scroll':
-            mouse.scroll(event['dx'], event['dy'])
+                if i > 0:
+                    delay = event['time'] - events[i - 1]['time']
+                    time.sleep(delay)
 
-        elif event['type'] == 'key_press':
-            key = event['key']
-            try:
-                keyboard.press(eval(key) if "Key." in key else key)
-            except Exception as e:
-                print(e)
-                pass
+                if event['type'] == 'move':
+                    m.position = (event['pos'][0] * scale, event['pos'][1] * scale)
 
-        elif event['type'] == 'key_release':
-            key = event['key']
-            try:
-                keyboard.release(eval(key) if "Key." in key else key)
-            except Exception as e:
-                print(e)
-                pass
+                elif event['type'] == 'click':
+                    m.position = (event['pos'][0] * scale, event['pos'][1] * scale)
+                    btn = Button.left if 'left' in event['btn'] else Button.right
+                    if event['pressed']:
+                        m.press(btn)
+                    else:
+                        m.release(btn)
+
+                elif event['type'] == 'scroll':
+                    m.scroll(event['dx'], event['dy'])
+
+                elif event['type'] == 'key_press':
+                    key = event['key']
+                    try:
+                        kb.press(eval(key) if "Key." in key else key)
+                    except Exception as e:
+                        print(e)
+
+                elif event['type'] == 'key_release':
+                    key = event['key']
+                    try:
+                        kb.release(eval(key) if "Key." in key else key)
+                    except Exception as e:
+                        print(e)
+    finally:
+        keyboard_listener.stop()
+        pressed_keys.clear()
+

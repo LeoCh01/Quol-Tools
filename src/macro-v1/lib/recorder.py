@@ -34,11 +34,17 @@ def on_scroll(x, y, dx, dy):
     })
 
 
-def on_press(key):
+def on_press(key, mouse_listener, keyboard_listener, stop_key):
     try:
         k = key.char
     except AttributeError:
         k = str(key)
+
+    if str(key) == stop_key:
+        mouse_listener.stop()
+        keyboard_listener.stop()
+        return
+
     events.append({
         'type': 'key_press',
         'time': time.time() - start_time,
@@ -46,7 +52,7 @@ def on_press(key):
     })
 
 
-def on_release(key, mouse_listener, keyboard_listener):
+def on_release(key):
     k = getattr(key, 'char', str(key))
     events.append({
         'type': 'key_release',
@@ -54,14 +60,15 @@ def on_release(key, mouse_listener, keyboard_listener):
         'key': k
     })
 
-    if key == keyboard.Key.esc:
-        mouse_listener.stop()
-        keyboard_listener.stop()
 
+def record_macro(path, stop_callback=None, stop_key='Key.esc', start_callback=None):
 
-def record_macro(path):
+    global start_time, events
+    events = []
+    start_time = time.time()
+
     mouse_listener = mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
-    keyboard_listener = keyboard.Listener(on_press=on_press, on_release=lambda key: on_release(key, mouse_listener, keyboard_listener))
+    keyboard_listener = keyboard.Listener(on_release=on_release, on_press=lambda key: on_press(key, mouse_listener, keyboard_listener, stop_key))
 
     mouse_listener.start()
     keyboard_listener.start()
@@ -73,3 +80,5 @@ def record_macro(path):
         json.dump(events, f, indent=4)
 
     print('Macro saved to', path)
+    if stop_callback:
+        stop_callback()
