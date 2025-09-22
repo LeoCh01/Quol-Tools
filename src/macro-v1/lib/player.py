@@ -39,7 +39,7 @@ def start_user_activity_monitor():
     return listener
 
 
-def play_macro(path, rep=1, scale=1):
+def play_macro(path, rep=1, scale=1, speed=1):
     m = MouseController()
     kb = KeyboardController()
 
@@ -60,7 +60,7 @@ def play_macro(path, rep=1, scale=1):
                     return
 
                 if i > 0:
-                    delay = event['time'] - events[i - 1]['time']
+                    delay = (event['time'] - events[i - 1]['time']) * 1 / speed
                     time.sleep(delay)
 
                 if event['type'] == 'move':

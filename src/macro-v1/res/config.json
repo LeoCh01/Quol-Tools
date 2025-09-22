@@ -1,13 +1,13 @@
 {
   "record_key": "Key.f3",
   "stop_key": "Key.f4",
+  "speed": 1,
   "_": {
     "geometry": [
-      300,
-      300,
+      200,
+      360,
       180,
       1
-    ],
-    "is_hotkey": true
+    ]
   }
 }
