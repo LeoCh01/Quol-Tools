@@ -17,18 +17,14 @@ WM_KEYUP = 257
 def win32_event_filter(msg, data):
     if msg == WM_KEYDOWN:
         pressed_keys.add(data.vkCode)
-
         # 162 is VK_CONTROL, 27 is VK_ESCAPE
         if 162 in pressed_keys and 27 in pressed_keys:
             print("Ctrl + Esc detected. Stopping playback.")
             stop_event.set()
             listener.suppress_event()
+
     elif msg == WM_KEYUP:
         pressed_keys.discard(data.vkCode)
-
-
-def on_key_release(key):
-    pressed_keys.discard(key)
 
 
 def start_user_activity_monitor():
@@ -39,28 +35,32 @@ def start_user_activity_monitor():
     return listener
 
 
-def play_macro(path, rep=1, scale=1, speed=1):
+def _play_macro_thread(path, rep=1, scale=1, speed=1):
     m = MouseController()
     kb = KeyboardController()
 
-    with open(path, "r") as f:
-        events = json.load(f)
+    try:
+        with open(path, "r") as f:
+            events = json.load(f)
+    except Exception as e:
+        print(f"Failed to load macro: {e}")
+        return
 
     keyboard_listener = start_user_activity_monitor()
 
     try:
         for _ in range(rep):
             if stop_event.is_set():
-                print("Playback interrupted by user.1")
+                print("Playback interrupted by user. 1")
                 break
 
             for i, event in enumerate(events):
                 if stop_event.is_set():
-                    print("Playback interrupted by user.2")
+                    print("Playback interrupted by user. 2")
                     return
 
                 if i > 0:
-                    delay = (event['time'] - events[i - 1]['time']) * 1 / speed
+                    delay = (event['time'] - events[i - 1]['time']) / speed
                     time.sleep(delay)
 
                 if event['type'] == 'move':
@@ -82,15 +82,25 @@ def play_macro(path, rep=1, scale=1, speed=1):
                     try:
                         kb.press(eval(key) if "Key." in key else key)
                     except Exception as e:
-                        print(e)
+                        print(f"Key press error: {e}")
 
                 elif event['type'] == 'key_release':
                     key = event['key']
                     try:
                         kb.release(eval(key) if "Key." in key else key)
                     except Exception as e:
-                        print(e)
+                        print(f"Key release error: {e}")
     finally:
         keyboard_listener.stop()
         pressed_keys.clear()
+        print("Done playback")
 
+
+def play_macro(path, rep=1, scale=1, speed=1):
+    stop_event.clear()
+    t = threading.Thread(
+        target=_play_macro_thread,
+        args=(path, rep, scale, speed),
+        daemon=True
+    )
+    t.start()

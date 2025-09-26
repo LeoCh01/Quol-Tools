@@ -57,37 +57,41 @@ class MainWindow(QuolMainWindow):
         self.recording = False
         self.current_macro_id = None
         self.macro_rows = {}
-        self.listener = None
+        self.input_id = None
         self.on_toggle()
 
         QTimer.singleShot(0, self.load_macros)
 
-    def on_toggle(self):    
+    def on_update_config(self):
+        if self.input_id:
+            self.window_context.input_manager.remove_key_press_listener(self.input_id)
+            self.input_id = None
+        if self.toggle_btn.text() == 'On':
+            self.input_id = self.window_context.input_manager.add_key_press_listener(self.on_key_press, suppressed=(self.config['record_key'], ))
+
+    def on_toggle(self):
         if self.toggle_btn.text() == 'On':
             self.toggle_btn.setText('Off')
             self.toggle_btn.setStyleSheet('background-color: #f44336;')
-            if self.listener:
-                self.listener.stop()
-                self.listener = None
+            if self.input_id:
+                self.window_context.input_manager.remove_key_press_listener(self.input_id)
+                self.input_id = None
         else:
             self.toggle_btn.setText('On')
             self.toggle_btn.setStyleSheet('background-color: #4CAF50;')
-            self.listener = Listener(win32_event_filter=self.win32_event_filter)
-            self.listener.start()
+            self.input_id = self.window_context.input_manager.add_key_press_listener(self.on_key_press, suppressed=(self.config['record_key'], ))
 
-    def win32_event_filter(self, msg, data):
-        if msg == WM_KEYDOWN and data.vkCode == 114 and not self.recording:
+    def on_key_press(self, key_str):
+        if key_str == self.config['record_key'] and not self.recording:
             self.start_recording_signal.emit()
 
-            self.listener.suppress_event()
-
     def start_recording(self):
-        # self.record_signal.emit()  # not working
+        self.record_signal.emit()
         self.recording = True
         self.current_macro_id = f'__macro_{uuid.uuid4().hex}'
         print('Recording macro:', self.current_macro_id)
 
-        record_macro(f'{self.macros_dir}/{self.current_macro_id}.json', self.stop_recording_signal.emit, self.config['stop_key'])
+        record_macro(f'{self.macros_dir}/{self.current_macro_id}.json', self.stop_recording_signal.emit, self.config['record_key'])
 
     def stop_recording(self):
         self.stop_signal.emit()
@@ -176,9 +180,3 @@ class MainWindow(QuolMainWindow):
         data = read_json(self.macros_path)
         for name, macro_id in data.items():
             self.add_macro_row(name, macro_id)
-
-    def closeEvent(self, event):
-        if self.listener:
-            self.listener.stop()
-            self.listener = None
-        super().closeEvent(event)

@@ -1,6 +1,7 @@
 from pynput import mouse, keyboard
 import time
 import json
+import threading
 
 events = []
 start_time = time.time()
@@ -34,51 +35,60 @@ def on_scroll(x, y, dx, dy):
     })
 
 
-def on_press(key, mouse_listener, keyboard_listener, stop_key):
-    try:
-        k = key.char
-    except AttributeError:
-        k = str(key)
-
-    if str(key) == stop_key:
-        mouse_listener.stop()
-        keyboard_listener.stop()
-        return
-
-    events.append({
-        'type': 'key_press',
-        'time': time.time() - start_time,
-        'key': k
-    })
-
-
-def on_release(key):
-    k = getattr(key, 'char', str(key))
-    events.append({
-        'type': 'key_release',
-        'time': time.time() - start_time,
-        'key': k
-    })
-
-
-def record_macro(path, stop_callback=None, stop_key='Key.esc', start_callback=None):
-
+def record_macro(path, stop_callback=None, stop_key='Key.esc'):
     global start_time, events
     events = []
     start_time = time.time()
 
-    mouse_listener = mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
-    keyboard_listener = keyboard.Listener(on_release=on_release, on_press=lambda key: on_press(key, mouse_listener, keyboard_listener, stop_key))
+    def on_press(key):
+        try:
+            k = key.char
+        except AttributeError:
+            k = str(key)
+
+        if str(key) in (stop_key, f'Key.{stop_key}'):
+            mouse_listener.stop()
+            keyboard_listener.stop()
+            return
+
+        events.append({
+            'type': 'key_press',
+            'time': time.time() - start_time,
+            'key': k
+        })
+
+    def on_release(key):
+        k = getattr(key, 'char', str(key))
+        events.append({
+            'type': 'key_release',
+            'time': time.time() - start_time,
+            'key': k
+        })
+
+    def on_stop():
+        with open(path, 'w') as f:
+            json.dump(events, f, indent=4)
+        print('Macro saved to', path)
+        if stop_callback:
+            stop_callback()
+
+    mouse_listener = mouse.Listener(
+        on_move=on_move,
+        on_click=on_click,
+        on_scroll=on_scroll
+    )
+
+    keyboard_listener = keyboard.Listener(
+        on_press=on_press,
+        on_release=on_release
+    )
+
+    def wait_for_listeners():
+        mouse_listener.join()
+        keyboard_listener.join()
+        on_stop()
 
     mouse_listener.start()
     keyboard_listener.start()
 
-    mouse_listener.join()
-    keyboard_listener.join()
-
-    with open(path, 'w') as f:
-        json.dump(events, f, indent=4)
-
-    print('Macro saved to', path)
-    if stop_callback:
-        stop_callback()
+    threading.Thread(target=wait_for_listeners, daemon=True).start()
