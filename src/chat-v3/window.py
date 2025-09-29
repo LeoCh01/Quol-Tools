@@ -1,5 +1,4 @@
 import re
-from pynput.mouse import Controller, Button
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QPushButton, QComboBox, QLineEdit, QHBoxLayout, QVBoxLayout
@@ -25,13 +24,13 @@ class MainWindow(QuolMainWindow):
         self.window_context.toggle.connect(self.gpt.toggle_windows)
 
         self.ai = AI(self, self.chat_window)
-
         self.ai_list = QComboBox()
         self.ai_list.addItems(['gemini', 'ollama', 'groq'])
 
         self.reload_btn_gpt = QPushButton('init')
-
         self.clear_btn = QPushButton('Clear')
+
+        window_context.toggle.connect(self.focus)
 
         self.img_btn = QPushButton('Image')
         self.img_btn.setCheckable(True)
@@ -103,19 +102,11 @@ class MainWindow(QuolMainWindow):
 
     def focus(self):
         if self.config['config']['auto_focus'] and not self.window_context.get_is_hidden():
-            QTimer.singleShot(210, self._focus_action)
-
-    def _focus_action(self):
-        if self.window_context.get_is_hidden():
-            return
-
-        mouse = Controller()
-        cur = mouse.position
-        sf = QGuiApplication.primaryScreen().devicePixelRatio()
-
-        mouse.position = ((self.x() + 20) * sf, (self.y() + 80) * sf)
-        mouse.click(Button.left, 1)
-        mouse.position = [cur[0], cur[1]]
+            self.raise_()
+            self.activateWindow()
+            self.prompt.setFocus()
+        elif self.config['config']['auto_focus']:
+            self.prompt.clearFocus()
 
     def send_prompt(self):
         self.ai.is_img = self.img_btn.isChecked()
