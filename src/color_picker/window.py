@@ -1,5 +1,3 @@
-import keyboard
-
 from PySide6.QtCore import QTimer, QSize, Qt
 from PySide6.QtGui import QPixmap, QColor, QGuiApplication, QCursor, QPainter
 from PySide6.QtWidgets import QLabel, QGridLayout, QPushButton
@@ -50,7 +48,7 @@ class MainWindow(QuolMainWindow):
         self.timer = QTimer()
         self.update_color()
 
-        self.esc_key = None
+        self.esc_id = None
 
     def copy_color(self, t):
         clipboard = QGuiApplication.clipboard()
@@ -68,14 +66,15 @@ class MainWindow(QuolMainWindow):
         self.select_btn.setChecked(True)
         self.timer.timeout.connect(self.update_color)
         self.timer.start(100)
-        self.esc_key = keyboard.on_press_key('esc', lambda _: self.on_color_select())
+        self.esc_id = self.window_context.input_manager.add_key_press_listener(self.on_key_press, suppressed=('esc',))
 
-    def on_color_select(self):
-        keyboard.unhook_key(self.esc_key)
-        self.timer.stop()
-        self.select_btn.setText('pick color')
-        self.select_btn.setStyleSheet('')
-        self.select_btn.setChecked(False)
+    def on_key_press(self, key):
+        if key.lower() == 'esc':
+            self.window_context.input_manager.remove_key_press_listener(self.esc_id)
+            self.timer.stop()
+            self.select_btn.setText('pick color')
+            self.select_btn.setStyleSheet('')
+            self.select_btn.setChecked(False)
 
     def update_color(self):
         pos = QCursor.pos()

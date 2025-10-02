@@ -7,7 +7,6 @@ from PySide6.QtWidgets import (
 from lib.quol_window import QuolMainWindow
 from lib.window_loader import WindowInfo, WindowContext
 from lib.io_helpers import read_json, write_json
-from pynput.keyboard import Listener
 
 from lib.recorder import record_macro
 from lib.player import play_macro

@@ -3,8 +3,6 @@ import os
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QGroupBox
 
-import keyboard
-
 from lib.io_helpers import read_json, write_json
 from lib.quol_window import QuolMainWindow
 from lib.window_loader import WindowInfo, WindowContext
@@ -32,9 +30,12 @@ class MainWindow(QuolMainWindow):
 
         QTimer.singleShot(0, self.load_mappings)
 
-    @staticmethod
-    def make_send_callback(dst):
-        return lambda: keyboard.send(dst)
+    def make_send_callback(self, dst):
+        def callback():
+            self.window_context.input_manager.send_keys(dst)
+            return False
+
+        return callback
 
     def add_group_row(self, name="Unnamed", mappings=None):
         self.setFixedHeight(self.height() + 25)
@@ -75,7 +76,11 @@ class MainWindow(QuolMainWindow):
             if not group['enabled']:
                 for src, dst in group['mappings']:
                     try:
-                        handle = keyboard.add_hotkey(src, self.make_send_callback(dst), suppress=True)
+                        handle = self.window_context.input_manager.add_hotkey(
+                            src,
+                            self.make_send_callback(dst),
+                            suppressed=True
+                        )
                         group['handles'][src] = handle
                     except Exception as e:
                         print(f"Failed to bind {src} -> {dst}: {e}")
@@ -83,7 +88,7 @@ class MainWindow(QuolMainWindow):
                 enable_btn.setStyleSheet("background-color: #4CAF50;")
             else:
                 for handle in group['handles'].values():
-                    keyboard.remove_hotkey(handle)
+                    self.window_context.input_manager.remove_hotkey(handle)
                 group['handles'].clear()
                 group['enabled'] = False
                 enable_btn.setStyleSheet("")
@@ -109,11 +114,15 @@ class MainWindow(QuolMainWindow):
                 # Refresh hotkeys if enabled
                 if group['enabled']:
                     for handle in group['handles'].values():
-                        keyboard.remove_hotkey(handle)
+                        self.window_context.input_manager.remove_hotkey(handle)
                     group['handles'].clear()
                     for src, dst in mappings:
                         try:
-                            handle = keyboard.add_hotkey(src, self.make_send_callback(dst), suppress=True)
+                            handle = self.window_context.input_manager.add_hotkey(
+                                src,
+                                self.make_send_callback(dst),
+                                suppressed=True
+                            )
                             group['handles'][src] = handle
                         except Exception as e:
                             print(f"Failed to bind {src} -> {dst}: {e}")
@@ -135,7 +144,7 @@ class MainWindow(QuolMainWindow):
         group = self.mapping_groups[group_id]
         if group['enabled']:
             for handle in group['handles'].values():
-                keyboard.remove_hotkey(handle)
+                self.window_context.input_manager.remove_hotkey(handle)
 
         group['widget'].setParent(None)
         group['widget'].deleteLater()
@@ -159,8 +168,5 @@ class MainWindow(QuolMainWindow):
     def closeEvent(self, event):
         for group in self.mapping_groups.values():
             for handle in group['handles'].values():
-                keyboard.remove_hotkey(handle)
+                self.window_context.input_manager.remove_hotkey(handle)
         super().closeEvent(event)
-
-
-

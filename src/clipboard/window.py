@@ -1,7 +1,6 @@
 from typing import Optional
 
-import keyboard
-from PySide6.QtCore import Signal, QTimer, QRect
+from PySide6.QtCore import Signal, QTimer
 from PySide6.QtGui import QIcon, Qt
 from PySide6.QtWidgets import QGroupBox, QVBoxLayout, QPushButton, QHBoxLayout, QApplication, QSizePolicy
 
@@ -11,7 +10,6 @@ from lib.window_loader import WindowInfo, WindowContext
 from lib.note_name_dialog import NoteNameDialog
 from lib.button import CustomButton
 from lib.sticky_window import StickyWindow
-from lib.copy_popup import CopiedPopup
 
 
 class MainWindow(QuolMainWindow):
@@ -21,8 +19,6 @@ class MainWindow(QuolMainWindow):
         super().__init__('Clipboard', window_info, window_context, default_geometry=(10, 150, 180, 1))
 
         self.copy_signal.connect(self.on_copy)
-
-        # self.copy_popup = CopiedPopup('copied!')
 
         self.copy_params = QHBoxLayout()
         self.clear = QPushButton('Clear')
@@ -42,7 +38,7 @@ class MainWindow(QuolMainWindow):
         self.layout.addWidget(self.clip_groupbox)
 
         self.copy_pressed = False
-        keyboard.hook(lambda e: self.on_action(e))
+        self.window_context.input_manager.add_hotkey('ctrl+c', self.on_copy_hotkey)
 
         self.setFixedHeight(self.config['length'] * 30 + 110)
         self.clip_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -63,10 +59,8 @@ class MainWindow(QuolMainWindow):
             if note:
                 self.on_note(k, note, (i * 15, self.config['length'] * 30 + 200 + i * 45))
 
-    def handle_key_press(self, event):
-        if event.name == 'c' and keyboard.is_pressed('ctrl') and not self.copy_pressed:
-            self.copy_pressed = True
-            self.copy_signal.emit()
+    def on_copy_hotkey(self):
+        self.copy_signal.emit()
 
     def handle_key_release(self, event):
         print(f'Key released: {event.name}')
@@ -75,15 +69,6 @@ class MainWindow(QuolMainWindow):
 
     def create_copy_btn(self, text):
         return CustomButton(QIcon(self.window_info.path + '/res/img/copy.png'), text, self.clipboard['copy'])
-
-    def on_action(self, event):
-        if event.event_type == 'down':
-            if event.name == 'c' and keyboard.is_pressed('ctrl') and not self.copy_pressed:
-                self.copy_pressed = True
-                self.copy_signal.emit()
-        elif event.event_type == 'up':
-            if event.name == 'c':
-                self.copy_pressed = False
 
     def save_clipboard(self):
         write_json(self.clipboard_path, self.clipboard)
@@ -94,8 +79,6 @@ class MainWindow(QuolMainWindow):
     def update_clipboard(self):
         if not QApplication.clipboard().text():
             return
-
-        # self.copy_popup.play()
 
         self.clipboard['copy'].append(QApplication.clipboard().text())
 
