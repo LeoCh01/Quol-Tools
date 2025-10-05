@@ -81,6 +81,7 @@ class MainWindow(QuolMainWindow):
             self.input_id = self.window_context.input_manager.add_key_press_listener(self.on_key_press, suppressed=(self.config['record_key'], ))
 
     def on_key_press(self, key_str):
+        print('Key pressed:', key_str)
         if key_str == self.config['record_key'] and not self.recording:
             self.start_recording_signal.emit()
 
