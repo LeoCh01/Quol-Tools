@@ -16,7 +16,7 @@ A tool to grab colors from the screen (RGB/HEX).
 Roll a dice, flip a coin.
 
 **Chat**  
-A tool to chat with an AI assistant (Gemini, Groq, Ollama, ChatGPT*).
+A tool to chat with an AI assistant (Gemini, Groq, Ollama, ChatGPT\*).
 
 **Draw**  
 A tool to sketch on the screen. Includes color-picking, brush size adjustment, and an eraser.
@@ -32,5 +32,8 @@ A tool to make HTTP requests (mini Postman).
 
 **Run Command**  
 A tool to manage and execute custom CMD commands.
+
+**Timer**
+Stopwatch.
 
 ---
