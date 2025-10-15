@@ -69,19 +69,18 @@ class MainWindow(QuolMainWindow):
             self.input_id = self.window_context.input_manager.add_key_press_listener(self.on_key_press, suppressed=(self.config['record_key'], ))
 
     def on_toggle(self):
-        if self.toggle_btn.text() == 'On':
+        if self.toggle_btn.text() == 'Off':
+            self.toggle_btn.setText('On')
+            self.toggle_btn.setStyleSheet('background-color: #4CAF50;')
+            self.input_id = self.window_context.input_manager.add_key_press_listener(self.on_key_press, suppressed=(self.config['record_key'],))
+        else:
             self.toggle_btn.setText('Off')
             self.toggle_btn.setStyleSheet('background-color: #f44336;')
             if self.input_id:
                 self.window_context.input_manager.remove_key_press_listener(self.input_id)
                 self.input_id = None
-        else:
-            self.toggle_btn.setText('On')
-            self.toggle_btn.setStyleSheet('background-color: #4CAF50;')
-            self.input_id = self.window_context.input_manager.add_key_press_listener(self.on_key_press, suppressed=(self.config['record_key'], ))
 
     def on_key_press(self, key_str):
-        print('Key pressed:', key_str)
         if key_str == self.config['record_key'] and not self.recording:
             self.start_recording_signal.emit()
 
