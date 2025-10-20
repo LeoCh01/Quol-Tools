@@ -1,5 +1,7 @@
 {
+  "draw_toggle": "ctrl+shift+d",
   "_": {
+    "dependency": "v3.2.0",
     "geometry": [
       930,
       10,

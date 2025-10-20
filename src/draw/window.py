@@ -1,9 +1,8 @@
 import collections
 
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, Qt, QPixmap, QPen, QShortcut, QKeySequence, QCursor, \
-    QPainterPath
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, Qt, QPixmap, QPen, QShortcut, QKeySequence, QCursor, QPainterPath
 from PySide6.QtWidgets import QPushButton, QHBoxLayout, QWidget, QApplication, QSlider, QLabel, QVBoxLayout
-from PySide6.QtCore import QPoint
+from PySide6.QtCore import QPoint, Signal
 
 from lib.quol_window import QuolMainWindow
 from lib.window_loader import WindowInfo, WindowContext
@@ -11,8 +10,10 @@ from lib.color_wheel import ColorWheel
 
 
 class MainWindow(QuolMainWindow):
+    toggle = Signal()
+
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Draw', window_info, window_context, default_geometry=(930, 10, 190, 1), show_config=False)
+        super().__init__('Draw', window_info, window_context, default_geometry=(930, 10, 190, 1))
 
         self.drawing_widget = DrawingWidget()
 
@@ -44,6 +45,13 @@ class MainWindow(QuolMainWindow):
 
         self.top_layout.addLayout(self.control_layout)
 
+        self.toggle.connect(self.on_start_clicked)
+        self.toggle_id = self.window_context.input_manager.add_hotkey(self.config['draw_toggle'], lambda: self.toggle.emit(), suppressed=True)
+
+    def on_update_config(self):
+        self.window_context.input_manager.remove_hotkey(self.toggle_id)
+        self.toggle_id = self.window_context.input_manager.add_hotkey(self.config['draw_toggle'], lambda: self.toggle.emit(), suppressed=True)
+
     def on_start_clicked(self):
         if self.start_button.text() == 'Start':
             self.start_button.setText('Stop')
@@ -71,8 +79,8 @@ class DrawingWidget(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         screen_geometry = QApplication.primaryScreen().geometry()
         self.setFixedSize(screen_geometry.width(), screen_geometry.height() - 20)
+        self.setMouseTracking(True)
 
-        self.drawing = False
         self.last_point = QPoint()
         self.pen_color = QColor('red')
         self.pen_width = 2
@@ -118,13 +126,16 @@ class DrawingWidget(QWidget):
             else:
                 self.current_stroke.type = 'free'
             self.current_stroke.add_point(point)
-            self.update()
 
         elif event.buttons() & Qt.MouseButton.RightButton:
             self.erase_stroke_at(point)
-            self.update()
+
+        self.update()
 
     def mouseReleaseEvent(self, event: QMouseEvent):
+        if self.current_stroke:
+            self.current_stroke.to_free()
+
         if event.button() == Qt.MouseButton.RightButton:
             self.eraser_mode = False
             self.current_stroke = None
@@ -140,6 +151,8 @@ class DrawingWidget(QWidget):
 
         if self.eraser_mode:
             self.draw_eraser_indicator(painter)
+        else:
+            self.draw_cursor_coordinates(painter)
 
     def keyPressEvent(self, event):
         if event.key() == Qt.Key.Key_Control:
@@ -209,12 +222,33 @@ class DrawingWidget(QWidget):
         self.pen_width = width
         self.update()
 
+    def draw_cursor_coordinates(self, painter: QPainter):
+        pos = self.mapFromGlobal(QCursor.pos())
+        text = f"({pos.x()}, {pos.y()})"
+
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Difference)
+
+        font = painter.font()
+        font.setPointSize(8)
+        painter.setFont(font)
+
+        painter.setPen(QColor(255, 255, 255))
+        painter.drawText(pos + QPoint(10, -10), text)
+
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
+
     def draw_eraser_indicator(self, painter: QPainter):
         eraser_size = (3 + self.pen_width ** 0.8) * self.eraser_multiplier
-        pen = QPen(QColor(255, 255, 255), 1, Qt.PenStyle.SolidLine)
-        painter.setPen(pen)
         cursor_pos = self.mapFromGlobal(QCursor.pos())
+
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Difference)
+
+        pen = QPen(QColor(255, 255, 255), 2, Qt.PenStyle.SolidLine)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawEllipse(cursor_pos, eraser_size, eraser_size)
+
+        painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceOver)
 
 
 class LineStroke:
@@ -228,6 +262,21 @@ class LineStroke:
         while self.type == 'snap' and len(self.points) >= 2:
             self.points.pop()
         self.points.append(point)
+
+    def to_free(self):
+        if self.type == 'snap':
+            self.type = 'free'
+        else:
+            return
+
+        d = self.points[0] - self.points[-1]
+        d = int((d.x() ** 2 + d.y() ** 2) ** 0.5 // 10)
+
+        for i in range(d):
+            t = (i + 1) / (d + 1)
+            x = int(self.points[0].x() * (1 - t) + self.points[-1].x() * t)
+            y = int(self.points[0].y() * (1 - t) + self.points[-1].y() * t)
+            self.points.insert(-1, QPoint(x, y))
 
     def draw(self, painter):
         if not self.points:
