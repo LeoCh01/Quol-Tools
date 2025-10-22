@@ -6,7 +6,7 @@ This repository hosts the zip files (plugins/tools) for the [Quol](https://githu
 
 ## **Tools Overview**
 
-**Anime**
+**Anime**  
 A tool to display the most recently aired anime.
 
 **Clipboard**  
