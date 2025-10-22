@@ -2,9 +2,12 @@
 
 This repository hosts the zip files (plugins/tools) for the [Quol](https://github.com/LeoCh01/Quol) application.
 
----
+![Screenshot](screenshot.png)
 
 ## **Tools Overview**
+
+**Anime**
+A tool to display the most recently aired anime.
 
 **Clipboard**  
 A tool to access clipboard history and create sticky notes.
@@ -13,7 +16,7 @@ A tool to access clipboard history and create sticky notes.
 A tool to grab colors from the screen (RGB/HEX).
 
 **Chance**  
-Roll a dice, flip a coin.
+A tool to roll a die; flip a coin.
 
 **Chat**  
 A tool to chat with an AI assistant (Gemini, Groq, Ollama, ChatGPT\*).
