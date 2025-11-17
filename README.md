@@ -36,7 +36,7 @@ A tool to make HTTP requests (mini Postman).
 **Run Command**  
 A tool to manage and execute custom CMD commands.
 
-**Timer**
+**Timer**  
 Stopwatch.
 
 ---

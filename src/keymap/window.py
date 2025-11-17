@@ -1,7 +1,12 @@
 import os
-
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QGroupBox
+from PySide6.QtWidgets import (
+    QVBoxLayout,
+    QHBoxLayout,
+    QPushButton,
+    QWidget,
+    QGroupBox,
+)
 
 from lib.io_helpers import read_json, write_json
 from lib.quol_window import QuolMainWindow
@@ -11,7 +16,13 @@ from lib.keymap_group import KeymapGroupDialog
 
 class MainWindow(QuolMainWindow):
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Keymap', window_info, window_context, default_geometry=(200, 180, 180, 1), show_config=False)
+        super().__init__(
+            'Keymap',
+            window_info,
+            window_context,
+            default_geometry=(200, 180, 180, 1),
+            show_config=False
+        )
 
         self.keymap_groupbox = QGroupBox('Key Mappings')
         self.keymap_layout = QVBoxLayout()
@@ -25,18 +36,40 @@ class MainWindow(QuolMainWindow):
 
         self.mapping_groups: dict[str, dict] = {}
         self.group_counter = 0
-
         self.mappings_path = window_info.path + '/res/keymaps.json'
+
+        # Track which destination keys are currently pressed
+        self.active_outputs = set()
+
+        # Add a single key release listener (to release mapped outputs)
+        im = self.window_context.input_manager
+        self.release_listener_id = im.add_key_release_listener(self.on_key_release)
 
         QTimer.singleShot(0, self.load_mappings)
 
-    def make_send_callback(self, dst):
+    # ===============================================================
+    # 🔹 CALLBACK HELPERS
+    # ===============================================================
+    def make_press_callback(self, dst):
+        """Create a callback that presses (but does not release) the mapped key."""
         def callback():
-            self.window_context.input_manager.send_keys(dst)
-            return False
-
+            im = self.window_context.input_manager
+            im.send_press(dst)
+            self.active_outputs.add(dst)
+            return False  # prevent propagation
         return callback
 
+    def on_key_release(self, key):
+        """When *any* key is released, release mapped outputs that were pressed."""
+        # Only release outputs that were previously pressed via mappings
+        im = self.window_context.input_manager
+        for dst in list(self.active_outputs):
+            im.send_release(dst)
+            self.active_outputs.discard(dst)
+
+    # ===============================================================
+    # 🔹 UI: GROUP MANAGEMENT
+    # ===============================================================
     def add_group_row(self, name="Unnamed", mappings=None):
         self.setFixedHeight(self.height() + 25)
         group_id = f"__group_{self.group_counter}"
@@ -54,6 +87,7 @@ class MainWindow(QuolMainWindow):
         enable_btn.setFixedWidth(20)
 
         delete_btn = QPushButton("✖")
+        delete_btn.setStyleSheet("background-color: #f44336;")
         delete_btn.setFixedWidth(20)
 
         row_layout.addWidget(group_button)
@@ -71,14 +105,20 @@ class MainWindow(QuolMainWindow):
             'name': name
         }
 
+        # ----------------------------
+        # BUTTON CALLBACKS
+        # ----------------------------
         def toggle_enable():
             group = self.mapping_groups[group_id]
+            im = self.window_context.input_manager
+
             if not group['enabled']:
+                # Register hotkeys for this group
                 for src, dst in group['mappings']:
                     try:
-                        handle = self.window_context.input_manager.add_hotkey(
+                        handle = im.add_hotkey(
                             src,
-                            self.make_send_callback(dst),
+                            self.make_press_callback(dst),
                             suppressed=True
                         )
                         group['handles'][src] = handle
@@ -87,8 +127,9 @@ class MainWindow(QuolMainWindow):
                 group['enabled'] = True
                 enable_btn.setStyleSheet("background-color: #4CAF50;")
             else:
+                # Unregister hotkeys
                 for handle in group['handles'].values():
-                    self.window_context.input_manager.remove_hotkey(handle)
+                    im.remove_hotkey(handle)
                 group['handles'].clear()
                 group['enabled'] = False
                 enable_btn.setStyleSheet("")
@@ -106,21 +147,21 @@ class MainWindow(QuolMainWindow):
                 if not name or not mappings:
                     return
 
-                # Update group data
                 group['mappings'] = mappings
                 group['name'] = name
                 group_button.setText(name)
 
-                # Refresh hotkeys if enabled
+                # Refresh bindings if enabled
                 if group['enabled']:
+                    im = self.window_context.input_manager
                     for handle in group['handles'].values():
-                        self.window_context.input_manager.remove_hotkey(handle)
+                        im.remove_hotkey(handle)
                     group['handles'].clear()
                     for src, dst in mappings:
                         try:
-                            handle = self.window_context.input_manager.add_hotkey(
+                            handle = im.add_hotkey(
                                 src,
-                                self.make_send_callback(dst),
+                                self.make_press_callback(dst),
                                 suppressed=True
                             )
                             group['handles'][src] = handle
@@ -138,19 +179,25 @@ class MainWindow(QuolMainWindow):
         group_button.clicked.connect(open_dialog)
 
     def remove_group(self, group_id):
+        """Remove a group and unregister its hotkeys."""
         if group_id not in self.mapping_groups:
             return
 
         group = self.mapping_groups[group_id]
+        im = self.window_context.input_manager
+
         if group['enabled']:
             for handle in group['handles'].values():
-                self.window_context.input_manager.remove_hotkey(handle)
+                im.remove_hotkey(handle)
 
         group['widget'].setParent(None)
         group['widget'].deleteLater()
         del self.mapping_groups[group_id]
         self.setFixedHeight(self.height() - 25)
 
+    # ===============================================================
+    # 🔹 SAVE / LOAD
+    # ===============================================================
     def save_mappings(self):
         data = {
             group['name']: {src: dst for src, dst in group['mappings']}
@@ -165,8 +212,16 @@ class MainWindow(QuolMainWindow):
         for name, mappings_dict in data.items():
             self.add_group_row(name, list(mappings_dict.items()))
 
+    # ===============================================================
+    # 🔹 CLEANUP
+    # ===============================================================
     def closeEvent(self, event):
+        im = self.window_context.input_manager
+        im.remove_key_release_listener(self.release_listener_id)
+
+        # Unregister all hotkeys
         for group in self.mapping_groups.values():
             for handle in group['handles'].values():
-                self.window_context.input_manager.remove_hotkey(handle)
+                im.remove_hotkey(handle)
+
         super().closeEvent(event)

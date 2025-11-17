@@ -1,3 +1,4 @@
+import requests
 from PySide6.QtWidgets import QListWidget, QListWidgetItem, QPushButton, QLabel, QWidget, QHBoxLayout, QVBoxLayout
 from PySide6.QtGui import QDesktopServices, QPixmap, QFont
 from PySide6.QtCore import Qt, QUrl, QObject, QRunnable, QThreadPool, Signal, Slot, QSize
@@ -42,7 +43,6 @@ class ImageDownloadWorker(QRunnable):
         self.signal = signal
 
     def run(self):
-        import requests
         try:
             headers = {"User-Agent": "Mozilla/5.0"}
             resp = requests.get(self.url, headers=headers, timeout=10)

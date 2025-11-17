@@ -76,7 +76,7 @@ class DrawingWidget(QWidget):
         super().__init__()
 
         self.setAttribute(Qt.WidgetAttribute.WA_StaticContents)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         screen_geometry = QApplication.primaryScreen().geometry()
         self.setFixedSize(screen_geometry.width(), screen_geometry.height() - 20)
         self.setMouseTracking(True)
