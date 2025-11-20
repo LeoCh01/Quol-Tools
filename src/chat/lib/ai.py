@@ -68,7 +68,7 @@ class AI:
         self.chat_window.set_output()
         self.main_window.set_button_loading_state(False)
 
-        with open(self.main_window.window_info.path + f'/res/{model}.log', 'a', encoding='utf-8') as f:
+        with open(self.main_window.window_info.path + f'/res/logs/{model}.log', 'a', encoding='utf-8') as f:
             f.write(f'{datetime.datetime.now()}\nQ: {prompt}\nA: {text.replace("\n\n", "\n")}\n\n')
 
     def on_request_error(self, error):
@@ -87,7 +87,7 @@ class AI:
             else:
                 self.history.append({'role': 'model', 'text': text})
 
-        with open(self.main_window.window_info.path + f'/res/{model}.log', 'a', encoding='utf-8') as f:
+        with open(self.main_window.window_info.path + f'/res/logs/{model}.log', 'a', encoding='utf-8') as f:
             if is_user:
                 f.write(f'{datetime.datetime.now()}\nQ: {text}\n')
             else:
@@ -110,7 +110,7 @@ class AI:
         self.thread.start()
 
     def on_ollama_finished(self, prompt, text):
-        with open(self.main_window.window_info.path + '/res/ollama.log', 'a', encoding='utf-8') as f:
+        with open(self.main_window.window_info.path + '/res/logs/ollama.log', 'a', encoding='utf-8') as f:
             f.write(f'{datetime.datetime.now()}\nQ: {prompt}\nA: {text.replace("\n\n", "\n")}\n\n')
 
         self.text_content = text

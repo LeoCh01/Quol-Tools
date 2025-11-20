@@ -1,7 +1,7 @@
 import re
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QPushButton, QComboBox, QLineEdit, QHBoxLayout, QVBoxLayout
+from PySide6.QtGui import QGuiApplication, QIcon
+from PySide6.QtWidgets import QPushButton, QComboBox, QLineEdit, QHBoxLayout
 
 from lib.quol_window import QuolMainWindow
 from lib.window_loader import WindowInfo, WindowContext
@@ -12,7 +12,7 @@ from lib.gpt_window import GPTWindow
 
 class MainWindow(QuolMainWindow):
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Chat', window_info, window_context, default_geometry=(730, 700, 190, 1))
+        super().__init__('Chat', window_info, window_context, default_geometry=(730, 700, 500, 1))
 
         with open(window_info.path + '/test_response.txt', 'r') as f:
             self.test_response = f.read().strip()
@@ -20,51 +20,64 @@ class MainWindow(QuolMainWindow):
         self.chat_window = ChatWindow(self)
         self.window_context.toggle.connect(self.chat_window.toggle_windows)
 
-        self.gpt = GPTWindow(self)
-        self.window_context.toggle.connect(self.gpt.toggle_windows)
+        # self.gpt = GPTWindow(self)
+        # self.window_context.toggle.connect(self.gpt.toggle_windows)
+        self.window_context.toggle.connect(self.focus)
 
         self.ai = AI(self, self.chat_window)
         self.ai_list = QComboBox()
-        self.ai_list.addItems(['gemini', 'ollama', 'groq'])
+        self.ai_list.addItems(['gemini', 'groq', 'ollama'])
 
-        self.reload_btn_gpt = QPushButton('init')
-        self.clear_btn = QPushButton('Clear')
+        self.ai_list_cycle_icon = QIcon(self.window_info.path + "/res/img/cycle.svg")
+        self.ai_list_cycle_btn = QPushButton(self)
+        self.ai_list_cycle_btn.setIcon(self.ai_list_cycle_icon)
 
-        window_context.toggle.connect(self.focus)
+        # self.reload_btn_gpt = QPushButton('init')
 
-        self.img_btn = QPushButton('Image')
+        self.clear_icon = QIcon(self.window_info.path + "/res/img/clear.svg")
+        self.clear_btn = QPushButton(self)
+        self.clear_btn.setIcon(self.clear_icon)
+
+        self.prompt = QLineEdit()
+        self.prompt.setPlaceholderText('Prompt for gemini...')
+
+        self.img_icon = QIcon(self.window_info.path + "/res/img/img.svg")
+        self.img_btn = QPushButton(self)
+        self.img_btn.setIcon(self.img_icon)
         self.img_btn.setCheckable(True)
         self.img_btn.setChecked(True)
         self.img_btn.setStyleSheet("background-color: #4CAF50;")
         self.img_btn.clicked.connect(self.on_image)
 
-        self.prompt = QLineEdit()
-        self.prompt.setPlaceholderText('prompt...')
+        self.send_icon = QIcon(self.window_info.path + "/res/img/send.svg")
+        self.send_btn = QPushButton(self)
+        self.send_btn.setIcon(self.send_icon)
+        self.send_btn.setStyleSheet("padding-left: 5px; padding-right: 5px;")
 
-        self.send_btn = QPushButton('Send')
+        self.prompt_layout = QHBoxLayout()
 
-        self.top_layout = QHBoxLayout()
-        self.prompt_layout = QVBoxLayout()
-
-        self.top_layout.addWidget(self.ai_list)
-        self.top_layout.addWidget(self.clear_btn)
-        self.top_layout.addWidget(self.img_btn)
+        self.prompt_layout.addWidget(self.ai_list_cycle_btn)
+        self.prompt_layout.addWidget(self.clear_btn)
         self.prompt_layout.addWidget(self.prompt)
-        self.layout.addLayout(self.top_layout)
+        self.prompt_layout.addWidget(self.img_btn)
+        self.prompt_layout.addWidget(self.send_btn)
         self.layout.addLayout(self.prompt_layout)
-        self.layout.addWidget(self.send_btn)
 
-        self.reload_btn_gpt.clicked.connect(lambda: self.gpt.reload(self.reload_btn_gpt, self.clear_btn, self.send_btn))
-        self.connect_signals()
+        # self.reload_btn_gpt.clicked.connect(lambda: self.gpt.reload(self.reload_btn_gpt, self.clear_btn, self.send_btn))
+        self.ai_list_cycle_btn.clicked.connect(self.on_cycle)
+        self.clear_btn.clicked.connect(self.on_clear)
+        self.prompt.returnPressed.connect(self.send_prompt)
+        self.send_btn.clicked.connect(self.send_prompt)
+        # self.connect_signals()
 
     def on_update_config(self):
         self.clear_btn.clicked.disconnect()
         self.prompt.returnPressed.disconnect()
         self.send_btn.clicked.disconnect()
-        self.gpt.close()
+        # self.gpt.close()
         self.chat_window.close()
 
-        self.connect_signals()
+        # self.connect_signals()
 
     def connect_signals(self):
         self.swap_widgets()
@@ -89,6 +102,12 @@ class MainWindow(QuolMainWindow):
             self.top_layout.replaceWidget(self.reload_btn_gpt, self.ai_list)
             self.ai_list.show()
             self.reload_btn_gpt.hide()
+
+    def on_cycle(self):
+        current_index = self.ai_list.currentIndex()
+        next_index = (current_index + 1) % self.ai_list.count()
+        self.ai_list.setCurrentIndex(next_index)
+        self.prompt.setPlaceholderText(f'Prompt for {self.ai_list.currentText()}...')
 
     def on_clear(self):
         self.chat_window.chat_response.clear()
@@ -149,13 +168,11 @@ class MainWindow(QuolMainWindow):
 
     def set_button_loading_state(self, is_loading):
         if is_loading:
-            self.send_btn.setText('...')
             self.send_btn.setEnabled(False)
         else:
-            self.send_btn.setText('Send')
             self.send_btn.setEnabled(True)
 
     def closeEvent(self, event):
         self.chat_window.close()
-        self.gpt.close()
+        # self.gpt.close()
         super().close()

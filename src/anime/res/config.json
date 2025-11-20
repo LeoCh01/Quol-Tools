@@ -1,12 +1,12 @@
 {
-  "window_height": 500,
+  "window_height": 400,
   "sub_only": true,
   "_": {
     "geometry": [
       1460,
       10,
       240,
-      500
+      1
     ]
   }
 }
