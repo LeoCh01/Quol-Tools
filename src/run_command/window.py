@@ -9,7 +9,7 @@ from lib.window_loader import WindowInfo, WindowContext
 
 class MainWindow(QuolMainWindow):
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Command', window_info, window_context, default_geometry=(390, 10, 170, 1), show_config=False)
+        super().__init__('Command', window_info, window_context, default_geometry=(550, 10, 170, 1), show_config=False)
 
         self.commands_groupbox = QGroupBox('Commands')
         self.commands_layout = QVBoxLayout()

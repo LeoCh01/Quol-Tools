@@ -12,7 +12,7 @@ from lib.gpt_window import GPTWindow
 
 class MainWindow(QuolMainWindow):
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Chat', window_info, window_context, default_geometry=(730, 10, 190, 1))
+        super().__init__('Chat', window_info, window_context, default_geometry=(730, 700, 190, 1))
 
         with open(window_info.path + '/test_response.txt', 'r') as f:
             self.test_response = f.read().strip()

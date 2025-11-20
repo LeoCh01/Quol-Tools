@@ -99,7 +99,7 @@ class MainWindow(QuolMainWindow):
     image_ready = Signal(QListWidgetItem, bytes)  # Signal to safely update UI with image
 
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Anime', window_info, window_context, default_geometry=(1340, 10, 240, 200))
+        super().__init__('Anime', window_info, window_context, default_geometry=(1460, 10, 240, 1))
 
         self.current_page = 1
         self.max_pages = MAX_PAGE

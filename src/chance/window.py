@@ -17,7 +17,7 @@ CONFETTI = 'confetti2.gif'
 
 class MainWindow(QuolMainWindow):
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Chance', window_info, window_context, default_geometry=(570, 10, 150, 1), show_config=False)
+        super().__init__('Chance', window_info, window_context, default_geometry=(390, 10, 150, 1), show_config=False)
         self.is_coin_flip = True
 
         self.grid_layout = QGridLayout()

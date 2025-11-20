@@ -13,7 +13,7 @@ class MainWindow(QuolMainWindow):
     toggle = Signal()
 
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Draw', window_info, window_context, default_geometry=(930, 10, 190, 1))
+        super().__init__('Draw', window_info, window_context, default_geometry=(730, 10, 190, 1))
 
         self.drawing_widget = DrawingWidget()
 

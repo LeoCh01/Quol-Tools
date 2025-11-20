@@ -10,7 +10,7 @@ class MainWindow(QuolMainWindow):
     signal = Signal()
 
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Timer', window_info, window_context, default_geometry=(570, 180, 150, 1))
+        super().__init__('Timer', window_info, window_context, default_geometry=(390, 180, 150, 1))
 
         self.timerWindow = StopwatchWindow((self.x(), self.y(), 1, 1), self.window_info.path + '/res')
         self.signal.connect(self.timerWindow.toggle_stopwatch)
