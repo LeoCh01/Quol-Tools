@@ -72,9 +72,9 @@ class MainWindow(QuolMainWindow):
         # self.connect_signals()
 
     def on_update_config(self):
-        self.clear_btn.clicked.disconnect()
-        self.prompt.returnPressed.disconnect()
-        self.send_btn.clicked.disconnect()
+        # self.clear_btn.clicked.disconnect()
+        # self.prompt.returnPressed.disconnect()
+        # self.send_btn.clicked.disconnect()
         # self.gpt.close()
         self.chat_window.close()
 
