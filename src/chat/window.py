@@ -1,4 +1,5 @@
 import re
+from pynput.mouse import Controller, Button
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QPushButton, QComboBox, QLineEdit, QHBoxLayout
@@ -27,7 +28,7 @@ class MainWindow(QuolMainWindow):
 
         self.ai = AI(self, self.chat_window)
         self.ai_list = QComboBox()
-        self.ai_list.addItems(['gemini', 'groq', 'ollama'])
+        self.ai_list.addItems(['groq', 'gemini', 'ollama'])
 
         self.ai_list_cycle_icon = QIcon(self.window_info.path + "/res/img/cycle.svg")
         self.ai_list_cycle_btn = QPushButton(self)
@@ -40,7 +41,7 @@ class MainWindow(QuolMainWindow):
         self.clear_btn.setIcon(self.clear_icon)
 
         self.prompt = QLineEdit()
-        self.prompt.setPlaceholderText('Prompt for gemini...')
+        self.prompt.setPlaceholderText('Prompt for groq...')
 
         self.img_icon = QIcon(self.window_info.path + "/res/img/img.svg")
         self.img_btn = QPushButton(self)
@@ -121,12 +122,27 @@ class MainWindow(QuolMainWindow):
             self.img_btn.setStyleSheet("background-color: #F44336;")
 
     def focus(self):
+        # if self.config['config']['auto_focus'] and not self.window_context.get_is_hidden():
+        #     self.raise_()
+        #     self.activateWindow()
+        #     self.prompt.setFocus()
+        # elif self.config['config']['auto_focus']:
+        #     self.prompt.clearFocus()
+        
         if self.config['config']['auto_focus'] and not self.window_context.get_is_hidden():
-            self.raise_()
-            self.activateWindow()
-            self.prompt.setFocus()
-        elif self.config['config']['auto_focus']:
-            self.prompt.clearFocus()
+            QTimer.singleShot(210, self._focus_action)
+
+    def _focus_action(self):
+        if self.window_context.get_is_hidden():
+            return
+
+        mouse = Controller()
+        cur = mouse.position
+        sf = QGuiApplication.primaryScreen().devicePixelRatio()
+
+        mouse.position = ((self.x() + 100) * sf, (self.y() + 60) * sf)
+        mouse.click(Button.left, 1)
+        mouse.position = [cur[0], cur[1]]
 
     def send_prompt(self):
         self.ai.is_img = self.img_btn.isChecked()
