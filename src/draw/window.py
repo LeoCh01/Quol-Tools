@@ -13,7 +13,7 @@ class MainWindow(QuolMainWindow):
     toggle = Signal()
 
     def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Draw', window_info, window_context, default_geometry=(730, 10, 190, 1))
+        super().__init__('Draw', window_info, window_context, default_geometry=(550, 10, 190, 1))
 
         self.drawing_widget = DrawingWidget()
 
@@ -76,7 +76,7 @@ class DrawingWidget(QWidget):
         super().__init__()
 
         self.setAttribute(Qt.WidgetAttribute.WA_StaticContents)
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         screen_geometry = QApplication.primaryScreen().geometry()
         self.setFixedSize(screen_geometry.width(), screen_geometry.height() - 20)
         self.setMouseTracking(True)

@@ -2,11 +2,6 @@
   "draw_toggle": "ctrl+shift+d",
   "_": {
     "dependency": "v3.2.0",
-    "geometry": [
-      730,
-      10,
-      190,
-      1
-    ]
+    "geometry": [550, 10, 190, 1]
   }
 }
