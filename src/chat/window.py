@@ -4,8 +4,8 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QPushButton, QComboBox, QLineEdit, QHBoxLayout
 
-from lib.quol_window import QuolMainWindow
-from lib.window_loader import WindowInfo, WindowContext
+from qlib.windows.quol_window import QuolMainWindow
+from qlib.windows.window_loader import WindowInfo, WindowContext
 from lib.chat_window import ChatWindow
 from lib.ai import AI
 from lib.gpt_window import GPTWindow

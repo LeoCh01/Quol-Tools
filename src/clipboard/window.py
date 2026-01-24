@@ -4,9 +4,9 @@ from PySide6.QtCore import Signal, QTimer
 from PySide6.QtGui import QIcon, Qt
 from PySide6.QtWidgets import QGroupBox, QVBoxLayout, QPushButton, QHBoxLayout, QApplication, QSizePolicy
 
-from lib.io_helpers import read_json, write_json
-from lib.quol_window import QuolMainWindow
-from lib.window_loader import WindowInfo, WindowContext
+from qlib.io_helpers import read_json, write_json
+from qlib.windows.quol_window import QuolMainWindow
+from qlib.windows.window_loader import WindowInfo, WindowContext
 from lib.note_name_dialog import NoteNameDialog
 from lib.button import CustomButton
 from lib.sticky_window import StickyWindow

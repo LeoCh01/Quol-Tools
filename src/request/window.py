@@ -3,7 +3,7 @@ import json
 import httpx
 from PySide6.QtWidgets import QPushButton, QLineEdit, QHBoxLayout, QLabel, QComboBox, QPlainTextEdit, QVBoxLayout
 
-from lib.quol_window import QuolSubWindow, QuolMainWindow
+from qlib.windows.quol_window import QuolSubWindow, QuolMainWindow
 
 
 class MainWindow(QuolMainWindow):

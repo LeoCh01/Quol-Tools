@@ -3,8 +3,8 @@ from PySide6.QtWidgets import QListWidget, QListWidgetItem, QPushButton, QLabel,
 from PySide6.QtGui import QDesktopServices, QPixmap, QFont
 from PySide6.QtCore import Qt, QUrl, QObject, QRunnable, QThreadPool, Signal, Slot, QSize
 
-from lib.quol_window import QuolMainWindow
-from lib.window_loader import WindowInfo, WindowContext
+from qlib.windows.quol_window import QuolMainWindow
+from qlib.windows.window_loader import WindowInfo, WindowContext
 from lib.anime_fetcher import get_updated_anime
 
 # CONFIG

@@ -2,9 +2,9 @@ from PySide6.QtCore import QThread, Signal, QTimer
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QHBoxLayout, QTextBrowser, QApplication
 
-from lib.quol_window import QuolSubWindow
-from lib.window_loader import WindowInfo, WindowContext
-from simulator import Simulator
+from qlib.windows.quol_window import QuolSubWindow
+from qlib.windows.window_loader import WindowInfo, WindowContext
+# from simulator import Simulator
 
 test_response = ['']
 

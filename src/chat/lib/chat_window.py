@@ -5,7 +5,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QApplication, QTextBrowser
 
 
-from lib.quol_window import QuolSubWindow
+from qlib.windows.quol_window import QuolSubWindow
 
 
 class ChatWindow(QuolSubWindow):

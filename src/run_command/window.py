@@ -2,9 +2,9 @@ import subprocess
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QLineEdit, QHBoxLayout, QGroupBox, QLabel, QPlainTextEdit, \
     QCheckBox
 
-from lib.io_helpers import read_json, write_json
-from lib.quol_window import QuolMainWindow, QuolSubWindow
-from lib.window_loader import WindowInfo, WindowContext
+from qlib.io_helpers import read_json, write_json
+from qlib.windows.quol_window import QuolMainWindow, QuolSubWindow
+from qlib.windows.window_loader import WindowInfo, WindowContext
 
 
 class MainWindow(QuolMainWindow):

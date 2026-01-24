@@ -2,8 +2,8 @@ from PySide6.QtCore import QTimer, QSize, Qt
 from PySide6.QtGui import QPixmap, QColor, QGuiApplication, QCursor, QPainter
 from PySide6.QtWidgets import QLabel, QGridLayout, QPushButton
 
-from lib.quol_window import QuolMainWindow
-from lib.window_loader import WindowInfo, WindowContext
+from qlib.windows.quol_window import QuolMainWindow
+from qlib.windows.window_loader import WindowInfo, WindowContext
 
 
 class MainWindow(QuolMainWindow):

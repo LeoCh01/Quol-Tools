@@ -5,8 +5,8 @@ from PySide6.QtGui import QPixmap, Qt, QMovie
 
 import random
 
-from lib.quol_window import QuolMainWindow
-from lib.window_loader import WindowInfo, WindowContext
+from qlib.windows.quol_window import QuolMainWindow
+from qlib.windows.window_loader import WindowInfo, WindowContext
 
 COIN = 'coin-x.png'
 COIN_IMAGES = ['coin-h.png', 'coin-t.png']

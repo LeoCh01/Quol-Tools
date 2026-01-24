@@ -4,9 +4,9 @@ from PySide6.QtCore import QTimer, Qt, Signal
 from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QGroupBox, QLabel, QLineEdit
 )
-from lib.quol_window import QuolMainWindow
-from lib.window_loader import WindowInfo, WindowContext
-from lib.io_helpers import read_json, write_json
+from qlib.windows.quol_window import QuolMainWindow
+from qlib.windows.window_loader import WindowInfo, WindowContext
+from qlib.io_helpers import read_json, write_json
 
 from lib.recorder import record_macro
 from lib.player import play_macro

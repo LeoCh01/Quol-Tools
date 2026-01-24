@@ -4,8 +4,8 @@ from PySide6.QtGui import QColor, QMouseEvent, QPainter, Qt, QPixmap, QPen, QSho
 from PySide6.QtWidgets import QPushButton, QHBoxLayout, QWidget, QApplication, QSlider, QLabel, QVBoxLayout
 from PySide6.QtCore import QPoint, Signal
 
-from lib.quol_window import QuolMainWindow
-from lib.window_loader import WindowInfo, WindowContext
+from qlib.windows.quol_window import QuolMainWindow
+from qlib.windows.window_loader import WindowInfo, WindowContext
 from lib.color_wheel import ColorWheel
 
 

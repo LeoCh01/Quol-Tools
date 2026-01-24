@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QSizePolicy, QTextEdit
 
-from lib.quol_window import QuolResizableSubWindow
+from qlib.windows.quol_window import QuolResizableSubWindow
 
 
 class StickyWindow(QuolResizableSubWindow):
