@@ -6,7 +6,7 @@ from PySide6.QtGui import QPixmap, Qt, QMovie
 import random
 
 from qlib.windows.quol_window import QuolMainWindow
-from qlib.windows.window_loader import WindowInfo, WindowContext
+from qlib.windows.tool_loader import ToolSpec
 
 COIN = 'coin-x.png'
 COIN_IMAGES = ['coin-h.png', 'coin-t.png']
@@ -16,13 +16,13 @@ CONFETTI = 'confetti2.gif'
 
 
 class MainWindow(QuolMainWindow):
-    def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Chance', window_info, window_context, default_geometry=(390, 10, 150, 1), show_config=False)
+    def __init__(self, tool_spec: ToolSpec):
+        super().__init__('Chance', tool_spec, default_geometry=(390, 10, 150, 1), show_config=False)
         self.is_coin_flip = True
 
         self.grid_layout = QGridLayout()
         self.result_label = QLabel()
-        self.result_label.setPixmap(QPixmap(self.window_info.path + '/res/img/' + COIN))
+        self.result_label.setPixmap(QPixmap(self.tool_spec.path + '/res/img/' + COIN))
         self.result_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.coin_button = QPushButton('Coin')
         self.dice_button = QPushButton('Dice')
@@ -55,11 +55,11 @@ class MainWindow(QuolMainWindow):
         if self.is_coin_flip:
             self.coin_button.setStyleSheet('background-color: #696')
             self.dice_button.setStyleSheet('')
-            self.result_label.setPixmap(QPixmap(self.window_info.path + '/res/img/' + COIN))
+            self.result_label.setPixmap(QPixmap(self.tool_spec.path + '/res/img/' + COIN))
         else:
             self.coin_button.setStyleSheet('')
             self.dice_button.setStyleSheet('background-color: #696')
-            self.result_label.setPixmap(QPixmap(self.window_info.path + '/res/img/' + DICE))
+            self.result_label.setPixmap(QPixmap(self.tool_spec.path + '/res/img/' + DICE))
 
     def perform_action(self, event):
         if self.is_running:
@@ -75,7 +75,7 @@ class MainWindow(QuolMainWindow):
         def update_flip():
             if self.flip_counter < total_flips:
                 current_frame = frames[self.flip_counter % len(frames)]
-                self.result_label.setPixmap(QPixmap(self.window_info.path + '/res/img/' + current_frame))
+                self.result_label.setPixmap(QPixmap(self.tool_spec.path + '/res/img/' + current_frame))
                 self.flip_counter += 1
 
                 new_interval = initial_interval + (self.flip_counter * 20)
@@ -94,7 +94,7 @@ class MainWindow(QuolMainWindow):
         self.confetti_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.grid_layout.addWidget(self.confetti_label, 0, 0, 1, 2)
 
-        confetti_movie = QMovie(self.window_info.path + '/res/img/' + CONFETTI)
+        confetti_movie = QMovie(self.tool_spec.path + '/res/img/' + CONFETTI)
         confetti_movie.setSpeed(150)
         confetti_movie.setScaledSize(QtCore.QSize(self.width() - 20, 80))
 

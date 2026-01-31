@@ -14,7 +14,7 @@ class ChatWindow(QuolSubWindow):
         screen_geometry = QGuiApplication.primaryScreen().geometry()
         self.setGeometry(QRect(screen_geometry.width() - 510, screen_geometry.height() - 610, 500, 600))
 
-        with open(main_window.window_info.path + '/res/styles.css') as f:
+        with open(main_window.tool_spec.path + '/res/styles.css') as f:
             self.style_tag = f'<style>{HtmlFormatter(style='monokai').get_style_defs('.codehilite')}{f.read()}</style>'
 
         self.chat_response = QTextBrowser()

@@ -5,45 +5,45 @@ from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QPushButton, QComboBox, QLineEdit, QHBoxLayout
 
 from qlib.windows.quol_window import QuolMainWindow
-from qlib.windows.window_loader import WindowInfo, WindowContext
+from qlib.windows.tool_loader import ToolSpec
 from lib.chat_window import ChatWindow
 from lib.ai import AI
 from lib.gpt_window import GPTWindow
 
 
 class MainWindow(QuolMainWindow):
-    def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Chat', window_info, window_context, default_geometry=(10, 930, 500, 1))
+    def __init__(self, tool_spec: ToolSpec):
+        super().__init__('Chat', tool_spec, default_geometry=(10, 930, 500, 1))
         self.setGeometry(10, QGuiApplication.primaryScreen().geometry().height() - 140, 500, 1)
 
-        with open(window_info.path + '/test_response.txt', 'r') as f:
+        with open(tool_spec.path + '/test_response.txt', 'r') as f:
             self.test_response = f.read().strip()
 
         self.chat_window = ChatWindow(self)
-        self.window_context.toggle.connect(self.chat_window.toggle_windows)
+        self.tool_spec.toggle.connect(self.chat_window.toggle_windows)
 
         # self.gpt = GPTWindow(self)
-        # self.window_context.toggle.connect(self.gpt.toggle_windows)
-        self.window_context.toggle.connect(self.focus)
+        # self.tool_spec.toggle.connect(self.gpt.toggle_windows)
+        self.tool_spec.toggle.connect(self.focus)
 
         self.ai = AI(self, self.chat_window)
         self.ai_list = QComboBox()
         self.ai_list.addItems(['groq', 'gemini', 'ollama'])
 
-        self.ai_list_cycle_icon = QIcon(self.window_info.path + "/res/img/cycle.svg")
+        self.ai_list_cycle_icon = QIcon(self.tool_spec.path + "/res/img/cycle.svg")
         self.ai_list_cycle_btn = QPushButton(self)
         self.ai_list_cycle_btn.setIcon(self.ai_list_cycle_icon)
 
         # self.reload_btn_gpt = QPushButton('init')
 
-        self.clear_icon = QIcon(self.window_info.path + "/res/img/clear.svg")
+        self.clear_icon = QIcon(self.tool_spec.path + "/res/img/clear.svg")
         self.clear_btn = QPushButton(self)
         self.clear_btn.setIcon(self.clear_icon)
 
         self.prompt = QLineEdit()
         self.prompt.setPlaceholderText('Prompt for groq...')
 
-        self.img_icon = QIcon(self.window_info.path + "/res/img/img.svg")
+        self.img_icon = QIcon(self.tool_spec.path + "/res/img/img.svg")
         self.img_btn = QPushButton(self)
         self.img_btn.setIcon(self.img_icon)
         self.img_btn.setCheckable(True)
@@ -51,7 +51,7 @@ class MainWindow(QuolMainWindow):
         self.img_btn.setStyleSheet("background-color: #4CAF50;")
         self.img_btn.clicked.connect(self.on_image)
 
-        self.send_icon = QIcon(self.window_info.path + "/res/img/send.svg")
+        self.send_icon = QIcon(self.tool_spec.path + "/res/img/send.svg")
         self.send_btn = QPushButton(self)
         self.send_btn.setIcon(self.send_icon)
         self.send_btn.setStyleSheet("padding-left: 5px; padding-right: 5px;")
@@ -122,18 +122,18 @@ class MainWindow(QuolMainWindow):
             self.img_btn.setStyleSheet("background-color: #F44336;")
 
     def focus(self):
-        # if self.config['config']['auto_focus'] and not self.window_context.get_is_hidden():
+        # if self.config['config']['auto_focus'] and not self.tool_spec.get_is_hidden():
         #     self.raise_()
         #     self.activateWindow()
         #     self.prompt.setFocus()
         # elif self.config['config']['auto_focus']:
         #     self.prompt.clearFocus()
         
-        if self.config['config']['auto_focus'] and not self.window_context.get_is_hidden():
+        if self.config['config']['auto_focus'] and not self.tool_spec.get_is_hidden():
             QTimer.singleShot(210, self._focus_action)
 
     def _focus_action(self):
-        if self.window_context.get_is_hidden():
+        if self.tool_spec.get_is_hidden():
             return
 
         mouse = Controller()
@@ -150,10 +150,10 @@ class MainWindow(QuolMainWindow):
 
         if self.img_btn.isChecked():
             screen = QGuiApplication.primaryScreen()
-            self.window_context.toggle_windows_instant(True)
+            self.tool_spec.toggle_windows_instant(True)
             screenshot = screen.grabWindow(0).toImage()
-            self.window_context.toggle_windows_instant(False)
-            screenshot.save(self.window_info.path + '/res/img/screenshot.png')
+            self.tool_spec.toggle_windows_instant(False)
+            screenshot.save(self.tool_spec.path + '/res/img/screenshot.png')
 
         self.set_button_loading_state(True)
         QTimer.singleShot(0, self.start_chat)

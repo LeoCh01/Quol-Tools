@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QPushButton, QWidget, QGroupBox, QLabel, QLineEdit
 )
 from qlib.windows.quol_window import QuolMainWindow
-from qlib.windows.window_loader import WindowInfo, WindowContext
+from qlib.windows.tool_loader import ToolSpec
 from qlib.io_helpers import read_json, write_json
 
 from lib.recorder import record_macro
@@ -22,11 +22,11 @@ class MainWindow(QuolMainWindow):
     start_recording_signal = Signal()
     stop_recording_signal = Signal()
 
-    def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Macros', window_info, window_context, default_geometry=(550, 170, 180, 1))
+    def __init__(self, tool_spec: ToolSpec):
+        super().__init__('Macros', tool_spec, default_geometry=(550, 170, 180, 1))
 
-        self.macros_path = window_info.path + '/res/macros.json'
-        self.macros_dir = window_info.path + '/res/macros'
+        self.macros_path = tool_spec.path + '/res/macros.json'
+        self.macros_dir = tool_spec.path + '/res/macros'
         os.makedirs(self.macros_dir, exist_ok=True)
 
         self.macro_groupbox = QGroupBox('Macros')
@@ -63,21 +63,21 @@ class MainWindow(QuolMainWindow):
 
     def on_update_config(self):
         if self.input_id:
-            self.window_context.input_manager.remove_key_press_listener(self.input_id)
+            self.tool_spec.input_manager.remove_key_press_listener(self.input_id)
             self.input_id = None
         if self.toggle_btn.text() == 'On':
-            self.input_id = self.window_context.input_manager.add_key_press_listener(self.on_key_press, suppressed=(self.config['record_key'], ))
+            self.input_id = self.tool_spec.input_manager.add_key_press_listener(self.on_key_press, suppressed=(self.config['record_key'], ))
 
     def on_toggle(self):
         if self.toggle_btn.text() == 'Off':
             self.toggle_btn.setText('On')
             self.toggle_btn.setStyleSheet('background-color: #4CAF50;')
-            self.input_id = self.window_context.input_manager.add_key_press_listener(self.on_key_press, suppressed=(self.config['record_key'],))
+            self.input_id = self.tool_spec.input_manager.add_key_press_listener(self.on_key_press, suppressed=(self.config['record_key'],))
         else:
             self.toggle_btn.setText('Off')
             self.toggle_btn.setStyleSheet('background-color: #f44336;')
             if self.input_id:
-                self.window_context.input_manager.remove_key_press_listener(self.input_id)
+                self.tool_spec.input_manager.remove_key_press_listener(self.input_id)
                 self.input_id = None
 
     def on_key_press(self, key_str):

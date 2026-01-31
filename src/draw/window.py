@@ -5,15 +5,15 @@ from PySide6.QtWidgets import QPushButton, QHBoxLayout, QWidget, QApplication, Q
 from PySide6.QtCore import QPoint, Signal
 
 from qlib.windows.quol_window import QuolMainWindow
-from qlib.windows.window_loader import WindowInfo, WindowContext
+from qlib.windows.tool_loader import ToolSpec
 from lib.color_wheel import ColorWheel
 
 
 class MainWindow(QuolMainWindow):
     toggle = Signal()
 
-    def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Draw', window_info, window_context, default_geometry=(550, 10, 190, 1))
+    def __init__(self, tool_spec: ToolSpec):
+        super().__init__('Draw', tool_spec, default_geometry=(550, 10, 190, 1))
 
         self.drawing_widget = DrawingWidget()
 
@@ -46,16 +46,16 @@ class MainWindow(QuolMainWindow):
         self.top_layout.addLayout(self.control_layout)
 
         self.toggle.connect(self.on_start_clicked)
-        self.toggle_id = self.window_context.input_manager.add_hotkey(self.config['draw_toggle'], lambda: self.toggle.emit(), suppressed=True)
+        self.toggle_id = self.tool_spec.input_manager.add_hotkey(self.config['draw_toggle'], lambda: self.toggle.emit(), suppressed=True)
 
     def on_update_config(self):
-        self.window_context.input_manager.remove_hotkey(self.toggle_id)
-        self.toggle_id = self.window_context.input_manager.add_hotkey(self.config['draw_toggle'], lambda: self.toggle.emit(), suppressed=True)
+        self.tool_spec.input_manager.remove_hotkey(self.toggle_id)
+        self.toggle_id = self.tool_spec.input_manager.add_hotkey(self.config['draw_toggle'], lambda: self.toggle.emit(), suppressed=True)
 
     def on_start_clicked(self):
         if self.start_button.text() == 'Start':
             self.start_button.setText('Stop')
-            self.drawing_widget.start_drawing(self.window_context)
+            self.drawing_widget.start_drawing(self.tool_spec)
         else:
             self.start_button.setText('Start')
             self.drawing_widget.stop_drawing()

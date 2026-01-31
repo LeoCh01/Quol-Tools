@@ -35,4 +35,4 @@ class StickyWindow(QuolResizableSubWindow):
         self.main_window.sticky_notes.pop(self.wid, None)
 
         if not self.main_window.sticky_notes:
-            self.main_window.window_context.toggle.disconnect(self.toggle_windows)
+            self.main_window.tool_spec.toggle.disconnect(self.toggle_windows)

@@ -6,7 +6,7 @@ from PySide6.QtWidgets import QGroupBox, QVBoxLayout, QPushButton, QHBoxLayout, 
 
 from qlib.io_helpers import read_json, write_json
 from qlib.windows.quol_window import QuolMainWindow
-from qlib.windows.window_loader import WindowInfo, WindowContext
+from qlib.windows.tool_loader import ToolSpec
 from lib.note_name_dialog import NoteNameDialog
 from lib.button import CustomButton
 from lib.sticky_window import StickyWindow
@@ -15,8 +15,8 @@ from lib.sticky_window import StickyWindow
 class MainWindow(QuolMainWindow):
     copy_signal = Signal()
 
-    def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Clipboard', window_info, window_context, default_geometry=(10, 150, 180, 1))
+    def __init__(self, tool_spec: ToolSpec):
+        super().__init__('Clipboard', tool_spec, default_geometry=(10, 150, 180, 1))
 
         self.copy_signal.connect(self.on_copy)
 
@@ -42,14 +42,14 @@ class MainWindow(QuolMainWindow):
         self.layout.addWidget(self.clip_groupbox)
 
         self.copy_pressed = False
-        self.window_context.input_manager.add_hotkey('ctrl+c', self.on_copy_hotkey)
+        self.tool_spec.input_manager.add_hotkey('ctrl+c', self.on_copy_hotkey)
 
         self.setFixedHeight(self.config['length'] * 30 + 110)
         self.clip_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         self.sticky_notes: dict[str, StickyWindow] = {}
         
-        self.clipboard_path = self.window_info.path + '/res/clipboard.json'
+        self.clipboard_path = self.tool_spec.path + '/res/clipboard.json'
         self.clipboard: Optional[dict] = None
         self.load_clipboard()
         
@@ -72,7 +72,7 @@ class MainWindow(QuolMainWindow):
             self.copy_pressed = False
 
     def create_copy_btn(self, text):
-        return CustomButton(QIcon(self.window_info.path + '/res/img/copy.png'), text, self.clipboard['copy'])
+        return CustomButton(QIcon(self.tool_spec.path + '/res/img/copy.png'), text, self.clipboard['copy'])
 
     def save_clipboard(self):
         write_json(self.clipboard_path, self.clipboard)
@@ -121,7 +121,7 @@ class MainWindow(QuolMainWindow):
 
         sticky_window = StickyWindow(self, wid, text, pos)
         self.sticky_notes[wid] = sticky_window
-        self.window_context.toggle.connect(sticky_window.toggle_windows)
+        self.tool_spec.toggle.connect(sticky_window.toggle_windows)
 
         sticky_window.show()
         sticky_window.raise_()

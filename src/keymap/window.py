@@ -10,16 +10,15 @@ from PySide6.QtWidgets import (
 
 from qlib.io_helpers import read_json, write_json
 from qlib.windows.quol_window import QuolMainWindow
-from qlib.windows.window_loader import WindowInfo, WindowContext
+from qlib.windows.tool_loader import ToolSpec
 from lib.keymap_group import KeymapGroupDialog
 
 
 class MainWindow(QuolMainWindow):
-    def __init__(self, window_info: WindowInfo, window_context: WindowContext):
+    def __init__(self, tool_spec: ToolSpec):
         super().__init__(
             'Keymap',
-            window_info,
-            window_context,
+            tool_spec,
             default_geometry=(200, 150, 180, 1),
             show_config=False
         )
@@ -36,13 +35,13 @@ class MainWindow(QuolMainWindow):
 
         self.mapping_groups: dict[str, dict] = {}
         self.group_counter = 0
-        self.mappings_path = window_info.path + '/res/keymaps.json'
+        self.mappings_path = tool_spec.path + '/res/keymaps.json'
 
         # Track which destination keys are currently pressed
         self.active_outputs = set()
 
         # Add a single key release listener (to release mapped outputs)
-        im = self.window_context.input_manager
+        im = self.tool_spec.input_manager
         self.release_listener_id = im.add_key_release_listener(self.on_key_release)
 
         QTimer.singleShot(0, self.load_mappings)
@@ -53,7 +52,7 @@ class MainWindow(QuolMainWindow):
     def make_press_callback(self, dst):
         """Create a callback that presses (but does not release) the mapped key."""
         def callback():
-            im = self.window_context.input_manager
+            im = self.tool_spec.input_manager
             im.send_press(dst)
             self.active_outputs.add(dst)
             return False  # prevent propagation
@@ -62,7 +61,7 @@ class MainWindow(QuolMainWindow):
     def on_key_release(self, key):
         """When *any* key is released, release mapped outputs that were pressed."""
         # Only release outputs that were previously pressed via mappings
-        im = self.window_context.input_manager
+        im = self.tool_spec.input_manager
         for dst in list(self.active_outputs):
             im.send_release(dst)
             self.active_outputs.discard(dst)
@@ -110,7 +109,7 @@ class MainWindow(QuolMainWindow):
         # ----------------------------
         def toggle_enable():
             group = self.mapping_groups[group_id]
-            im = self.window_context.input_manager
+            im = self.tool_spec.input_manager
 
             if not group['enabled']:
                 # Register hotkeys for this group
@@ -153,7 +152,7 @@ class MainWindow(QuolMainWindow):
 
                 # Refresh bindings if enabled
                 if group['enabled']:
-                    im = self.window_context.input_manager
+                    im = self.tool_spec.input_manager
                     for handle in group['handles'].values():
                         im.remove_hotkey(handle)
                     group['handles'].clear()
@@ -184,7 +183,7 @@ class MainWindow(QuolMainWindow):
             return
 
         group = self.mapping_groups[group_id]
-        im = self.window_context.input_manager
+        im = self.tool_spec.input_manager
 
         if group['enabled']:
             for handle in group['handles'].values():
@@ -216,7 +215,7 @@ class MainWindow(QuolMainWindow):
     # 🔹 CLEANUP
     # ===============================================================
     def closeEvent(self, event):
-        im = self.window_context.input_manager
+        im = self.tool_spec.input_manager
         im.remove_key_release_listener(self.release_listener_id)
 
         # Unregister all hotkeys

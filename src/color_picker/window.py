@@ -3,12 +3,12 @@ from PySide6.QtGui import QPixmap, QColor, QGuiApplication, QCursor, QPainter
 from PySide6.QtWidgets import QLabel, QGridLayout, QPushButton
 
 from qlib.windows.quol_window import QuolMainWindow
-from qlib.windows.window_loader import WindowInfo, WindowContext
+from qlib.windows.tool_loader import ToolSpec
 
 
 class MainWindow(QuolMainWindow):
-    def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Color', window_info, window_context, default_geometry=(200, 10, 180, 1), show_config=False)
+    def __init__(self, tool_spec: ToolSpec):
+        super().__init__('Color', tool_spec, default_geometry=(200, 10, 180, 1), show_config=False)
 
         self.grid_layout = QGridLayout()
 
@@ -67,11 +67,11 @@ class MainWindow(QuolMainWindow):
         self.select_btn.setChecked(True)
         self.timer.timeout.connect(self.update_color)
         self.timer.start(100)
-        self.esc_id = self.window_context.input_manager.add_key_press_listener(self.on_key_press, suppressed=('esc',))
+        self.esc_id = self.tool_spec.input_manager.add_key_press_listener(self.on_key_press, suppressed=('esc',))
 
     def on_key_press(self, key):
         if key.lower() == 'esc':
-            self.window_context.input_manager.remove_key_press_listener(self.esc_id)
+            self.tool_spec.input_manager.remove_key_press_listener(self.esc_id)
             self.timer.stop()
             self.select_btn.setText('pick color')
             self.select_btn.setStyleSheet('')

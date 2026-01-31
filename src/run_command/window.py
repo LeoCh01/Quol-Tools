@@ -4,12 +4,12 @@ from PySide6.QtWidgets import QPushButton, QVBoxLayout, QLineEdit, QHBoxLayout, 
 
 from qlib.io_helpers import read_json, write_json
 from qlib.windows.quol_window import QuolMainWindow, QuolSubWindow
-from qlib.windows.window_loader import WindowInfo, WindowContext
+from qlib.windows.tool_loader import ToolSpec
 
 
 class MainWindow(QuolMainWindow):
-    def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Command', window_info, window_context, default_geometry=(750, 10, 170, 1), show_config=False)
+    def __init__(self, tool_spec: ToolSpec):
+        super().__init__('Command', tool_spec, default_geometry=(750, 10, 170, 1), show_config=False)
 
         self.commands_groupbox = QGroupBox('Commands')
         self.commands_layout = QVBoxLayout()
@@ -22,7 +22,7 @@ class MainWindow(QuolMainWindow):
         self.layout.addWidget(self.add_btn)
 
         self.commands = []
-        self.commands_path = self.window_info.path + '/res/commands.json'
+        self.commands_path = self.tool_spec.path + '/res/commands.json'
         self.load_commands()
         self.dialog = CommandConfig(self)
 

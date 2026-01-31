@@ -4,7 +4,7 @@ from PySide6.QtGui import QDesktopServices, QPixmap, QFont
 from PySide6.QtCore import Qt, QUrl, QObject, QRunnable, QThreadPool, Signal, Slot, QSize
 
 from qlib.windows.quol_window import QuolMainWindow
-from qlib.windows.window_loader import WindowInfo, WindowContext
+from qlib.windows.tool_loader import ToolSpec
 from lib.anime_fetcher import get_updated_anime
 
 # CONFIG
@@ -98,8 +98,8 @@ class AnimeListItem(QWidget):
 class MainWindow(QuolMainWindow):
     image_ready = Signal(QListWidgetItem, bytes)  # Signal to safely update UI with image
 
-    def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Anime', window_info, window_context, default_geometry=(1460, 10, 240, 1))
+    def __init__(self, tool_spec: ToolSpec):
+        super().__init__('Anime', tool_spec, default_geometry=(1460, 10, 240, 1))
 
         self.current_page = 1
         self.max_pages = MAX_PAGE

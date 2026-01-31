@@ -3,7 +3,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QHBoxLayout, QTextBrowser, QApplication
 
 from qlib.windows.quol_window import QuolSubWindow
-from qlib.windows.window_loader import WindowInfo, WindowContext
+from qlib.windows.tool_loader import ToolSpec
 # from simulator import Simulator
 
 test_response = ['']
@@ -13,15 +13,15 @@ class GPTWindow(QuolSubWindow):
     def __init__(self, main_window):
         super().__init__(main_window, 'GPT')
         self.setGeometry(1200, 410, 500, 600)
-        self.window_info: WindowInfo = main_window.window_info
-        self.window_context: WindowContext = main_window.window_context
+        self.tool_spec: WindowInfo = main_window.tool_spec
+        self.tool_spec: WindowContext = main_window.tool_spec
 
         self.output_box = QTextBrowser(self)
         self.output_box.setOpenExternalLinks(True)
         self.output_box.setReadOnly(True)
         self.layout.addWidget(self.output_box)
 
-        with open(self.window_info.path + '/res/gptstyles.css') as f:
+        with open(self.tool_spec.path + '/res/gptstyles.css') as f:
             self.style_tag = '<style>' + f.read() + '</style>'
 
         self.l2 = QHBoxLayout()
@@ -33,7 +33,7 @@ class GPTWindow(QuolSubWindow):
         self.set_output()
         self.loading_counter = 0
 
-        with open(self.window_info.path + '/test_response.txt', 'r') as f:
+        with open(self.tool_spec.path + '/test_response.txt', 'r') as f:
             test_response[0] = f.read()
 
         if test_response[0]:
@@ -51,10 +51,10 @@ class GPTWindow(QuolSubWindow):
         img_path = None
         if toggle_image_button.isChecked():
             screen = QGuiApplication.primaryScreen()
-            self.window_context.toggle_windows_instant(True)
+            self.tool_spec.toggle_windows_instant(True)
             screenshot = screen.grabWindow(0).toImage()
-            self.window_context.toggle_windows_instant(False)
-            img_path = self.window_info.path + '/res/img/screenshot.png'
+            self.tool_spec.toggle_windows_instant(False)
+            img_path = self.tool_spec.path + '/res/img/screenshot.png'
             screenshot.save(img_path)
 
         def on_loading():
