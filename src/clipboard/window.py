@@ -29,6 +29,10 @@ class MainWindow(QuolMainWindow):
         self.note.clicked.connect(lambda: self.on_note())
         self.copy_params.addWidget(self.note)
 
+        self.open = QPushButton('All')
+        self.open.clicked.connect(lambda: self.open_all_notes())
+        self.copy_params.addWidget(self.open)
+
         self.layout.addLayout(self.copy_params)
 
         self.clip_layout = QVBoxLayout()
@@ -122,6 +126,13 @@ class MainWindow(QuolMainWindow):
         sticky_window.show()
         sticky_window.raise_()
         sticky_window.activateWindow()
+
+    def open_all_notes(self):
+        y_offset = 0
+        for wid, note in self.clipboard['sticky'].items():
+            if note:
+                self.on_note(wid, note, (100 + y_offset, 100 + y_offset))
+                y_offset += 30
 
     def on_copy(self):
         print('copy')

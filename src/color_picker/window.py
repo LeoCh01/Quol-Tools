@@ -13,35 +13,36 @@ class MainWindow(QuolMainWindow):
         self.grid_layout = QGridLayout()
 
         self.color_label = QLabel()
-        self.grid_layout.addWidget(self.color_label, 0, 0)
+        # self.grid_layout.addWidget(self.color_label, 0, 2)
 
         self.hex = QLabel()
+        self.hex.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.hex.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.grid_layout.addWidget(self.hex, 0, 1)
+        self.grid_layout.addWidget(self.hex, 0, 2)
 
         self.rgb = QLabel()
         self.rgb.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.rgb.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.grid_layout.addWidget(self.rgb, 0, 2)
+        self.grid_layout.addWidget(self.rgb, 1, 2)
 
         self.pixmap_label = QLabel()
-        self.grid_layout.addWidget(self.pixmap_label, 1, 0, 3, 2)
+        self.grid_layout.addWidget(self.pixmap_label, 0, 0, 3, 2)
 
-        self.copy_rgb = QPushButton('copy RGB')
-        self.copy_rgb.setFixedWidth(79)
-        self.copy_rgb.clicked.connect(lambda: self.copy_color('rgb'))
-        self.grid_layout.addWidget(self.copy_rgb, 1, 2)
-
-        self.copy_hex = QPushButton('copy HEX')
-        self.copy_hex.setFixedWidth(79)
-        self.copy_hex.clicked.connect(lambda: self.copy_color('hex'))
-        self.grid_layout.addWidget(self.copy_hex, 2, 2)
+        # self.copy_rgb = QPushButton('copy RGB')
+        # self.copy_rgb.setFixedWidth(79)
+        # self.copy_rgb.clicked.connect(lambda: self.copy_color('rgb'))
+        # self.grid_layout.addWidget(self.copy_rgb, 1, 2)
+        #
+        # self.copy_hex = QPushButton('copy HEX')
+        # self.copy_hex.setFixedWidth(79)
+        # self.copy_hex.clicked.connect(lambda: self.copy_color('hex'))
+        # self.grid_layout.addWidget(self.copy_hex, 2, 2)
 
         self.select_btn = QPushButton('pick color')
         self.select_btn.setFixedWidth(79)
         self.select_btn.setCheckable(True)
         self.select_btn.clicked.connect(self.select_color)
-        self.grid_layout.addWidget(self.select_btn, 3, 2)
+        self.grid_layout.addWidget(self.select_btn, 2, 2)
 
         self.layout.addLayout(self.grid_layout)
         self.sf = QGuiApplication.primaryScreen().devicePixelRatio()

@@ -20,7 +20,7 @@ class MainWindow(QuolMainWindow):
             'Keymap',
             window_info,
             window_context,
-            default_geometry=(200, 180, 180, 1),
+            default_geometry=(200, 150, 180, 1),
             show_config=False
         )
 
