@@ -21,5 +21,10 @@
     "/e": "explain this in simple terms",
     "/i": "what is this image?"
   },
-  "_": { "dependency": "v4.0.0", "geometry": [10, 930, 500, 1] }
+  "_": {
+    "version": 1,
+    "description": "",
+    "dependency": "v4.0.0",
+    "geometry": [10, 930, 500, 1]
+  }
 }

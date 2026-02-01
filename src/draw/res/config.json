@@ -1,4 +1,9 @@
 {
   "draw_toggle": "ctrl+shift+d",
-  "_": { "dependency": "v4.0.0", "geometry": [550, 10, 190, 1] }
+  "_": {
+    "version": 1,
+    "description": "",
+    "dependency": "v4.0.0",
+    "geometry": [550, 10, 190, 1]
+  }
 }

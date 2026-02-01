@@ -1,5 +1,10 @@
 {
   "record_key": "f3",
   "speed": 1,
-  "_": { "dependency": "v4.0.0", "geometry": [550, 170, 180, 1] }
+  "_": {
+    "version": 1,
+    "description": "",
+    "dependency": "v4.0.0",
+    "geometry": [550, 170, 180, 1]
+  }
 }
