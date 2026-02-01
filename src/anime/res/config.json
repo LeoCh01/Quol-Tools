@@ -1,12 +1,5 @@
 {
   "window_height": 440,
   "sub_only": true,
-  "_": {
-    "geometry": [
-      1460,
-      10,
-      240,
-      1
-    ]
-  }
+  "_": { "dependency": "v4.0.0", "geometry": [1460, 10, 240, 1] }
 }

@@ -1,4 +1,6 @@
 {
-  "copy": [],
+  "copy": [
+    "self.ver.setToolTip(f'GitHub code')"
+  ],
   "sticky": {}
 }

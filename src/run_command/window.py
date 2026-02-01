@@ -106,9 +106,7 @@ class CommandConfig(QuolSubWindow):
         self.command_input = QPlainTextEdit(self)
         self.command_input.setPlaceholderText(
             'Add terminal command...\n\n'
-            'Example 1: open webpage (start https://www.google.com)\n\n'
-            'Example 2: show IP address (ipconfig)\n\n'
-            'Example 3: concatenate commands (start https://www.google.com && ipconfig)\n\n'
+            'Example: open webpage (start https://www.google.com)\n\n'
         )
 
         self.show_output_checkbox = QCheckBox('Show Output in Terminal', self)

@@ -16,12 +16,7 @@ from lib.keymap_group import KeymapGroupDialog
 
 class MainWindow(QuolMainWindow):
     def __init__(self, tool_spec: ToolSpec):
-        super().__init__(
-            'Keymap',
-            tool_spec,
-            default_geometry=(200, 150, 180, 1),
-            show_config=False
-        )
+        super().__init__('Keymap', tool_spec, default_geometry=(200, 150, 180, 1), show_config=False)
 
         self.keymap_groupbox = QGroupBox('Key Mappings')
         self.keymap_layout = QVBoxLayout()

@@ -1,12 +1,4 @@
 {
   "length": 10,
-  "_": {
-    "dependency": "v3.2.0",
-    "geometry": [
-      10,
-      150,
-      180,
-      1
-    ]
-  }
+  "_": { "dependency": "v4.0.0", "geometry": [10, 150, 180, 1] }
 }
