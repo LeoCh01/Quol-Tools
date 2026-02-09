@@ -23,6 +23,24 @@ class ColorWheel(QWidget):
     def get_color(self):
         return QColor.fromHsv(self.hue, int(self.saturation * 255), int(self.value * 255))
 
+    def set_color(self, color: QColor, emit=True):
+        if not color.isValid():
+            return
+
+        h, s, v, _ = color.getHsv()
+
+        # QColor.getHsv() can return -1 for grayscale hues
+        if h != -1:
+            self.hue = h
+
+        self.saturation = s / 255
+        self.value = v / 255
+
+        self.update()
+
+        if emit:
+            self.color_changed.emit(self.get_color())
+
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)

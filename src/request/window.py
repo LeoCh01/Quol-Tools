@@ -9,7 +9,7 @@ from qlib.windows.quol_window import QuolSubWindow, QuolMainWindow
 class MainWindow(QuolMainWindow):
 
     def __init__(self, tool_spec):
-        super().__init__('API', tool_spec, default_geometry=(930, 10, 200, 1), show_config=False)
+        super().__init__('API', tool_spec, default_geometry=(360, 160, 190, 1), show_config=False)
 
         method_layout = QHBoxLayout()
         method_layout.addWidget(QLabel('HTTP Method:'))

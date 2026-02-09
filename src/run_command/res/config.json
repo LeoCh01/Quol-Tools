@@ -3,6 +3,11 @@
     "version": 1,
     "description": "",
     "dependency": "v4.0.0",
-    "geometry": [750, 10, 170, 1]
+    "geometry": [
+      750,
+      10,
+      170,
+      1
+    ]
   }
 }

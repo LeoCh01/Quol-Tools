@@ -23,7 +23,7 @@ class MainWindow(QuolMainWindow):
     stop_recording_signal = Signal()
 
     def __init__(self, tool_spec: ToolSpec):
-        super().__init__('Macros', tool_spec, default_geometry=(550, 170, 180, 1))
+        super().__init__('Macros', tool_spec, default_geometry=(930, 10, 180, 1))
 
         self.macros_path = tool_spec.path + '/res/macros.json'
         self.macros_dir = tool_spec.path + '/res/macros'
