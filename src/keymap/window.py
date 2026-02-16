@@ -32,34 +32,52 @@ class MainWindow(QuolMainWindow):
         self.group_counter = 0
         self.mappings_path = tool_spec.path + '/res/keymaps.json'
 
-        # Track which destination keys are currently pressed
-        self.active_outputs = set()
+        # Track active key states
+        self.active_mappings = {}  # {src_key: dst_key}
+        self.enabled_mapping_cache = {}  # {src: dst}
+        self.held_keys = set()  # tracks physical held keys
 
-        # Add a single key release listener (to release mapped outputs)
         im = self.tool_spec.input_manager
+        self.press_listener_id = im.add_key_press_listener(self.on_key_press)
+        self.refresh_suppressed_keys()
         self.release_listener_id = im.add_key_release_listener(self.on_key_release)
 
         QTimer.singleShot(0, self.load_mappings)
 
     # ===============================================================
-    # 🔹 CALLBACK HELPERS
+    # 🔹 INPUT CALLBACKS
     # ===============================================================
-    def make_press_callback(self, dst):
-        """Create a callback that presses (but does not release) the mapped key."""
-        def callback():
-            im = self.tool_spec.input_manager
-            im.send_press(dst)
-            self.active_outputs.add(dst)
-            return False  # prevent propagation
-        return callback
+    def on_key_press(self, key):
+        if not key:
+            return
+
+        key = key.lower()
+
+        if key not in self.enabled_mapping_cache:
+            return
+
+        dst = self.enabled_mapping_cache[key]
+
+        if key not in self.held_keys:
+            # First physical press
+            self.held_keys.add(key)
+            self.tool_spec.input_manager.send_press(dst)
+        else:
+            # Repeat event
+            self.tool_spec.input_manager.send_keys(dst)
 
     def on_key_release(self, key):
-        """When *any* key is released, release mapped outputs that were pressed."""
-        # Only release outputs that were previously pressed via mappings
-        im = self.tool_spec.input_manager
-        for dst in list(self.active_outputs):
-            im.send_release(dst)
-            self.active_outputs.discard(dst)
+        if not key:
+            return
+
+        key = key.lower()
+
+        if key in self.held_keys:
+            self.held_keys.remove(key)
+
+            if key in self.enabled_mapping_cache:
+                dst = self.enabled_mapping_cache[key]
+                self.tool_spec.input_manager.send_release(dst)
 
     # ===============================================================
     # 🔹 UI: GROUP MANAGEMENT
@@ -95,7 +113,6 @@ class MainWindow(QuolMainWindow):
             'button': group_button,
             'mappings': mappings if mappings else [],
             'enabled': False,
-            'handles': {},
             'name': name
         }
 
@@ -104,28 +121,12 @@ class MainWindow(QuolMainWindow):
         # ----------------------------
         def toggle_enable():
             group = self.mapping_groups[group_id]
-            im = self.tool_spec.input_manager
+            group['enabled'] = not group['enabled']
+            self.rebuild_mapping_cache()
 
-            if not group['enabled']:
-                # Register hotkeys for this group
-                for src, dst in group['mappings']:
-                    try:
-                        handle = im.add_hotkey(
-                            src,
-                            self.make_press_callback(dst),
-                            suppressed=True
-                        )
-                        group['handles'][src] = handle
-                    except Exception as e:
-                        print(f"Failed to bind {src} -> {dst}: {e}")
-                group['enabled'] = True
+            if group['enabled']:
                 enable_btn.setStyleSheet("background-color: #4CAF50;")
             else:
-                # Unregister hotkeys
-                for handle in group['handles'].values():
-                    im.remove_hotkey(handle)
-                group['handles'].clear()
-                group['enabled'] = False
                 enable_btn.setStyleSheet("")
 
         def delete_group():
@@ -145,24 +146,8 @@ class MainWindow(QuolMainWindow):
                 group['name'] = name
                 group_button.setText(name)
 
-                # Refresh bindings if enabled
-                if group['enabled']:
-                    im = self.tool_spec.input_manager
-                    for handle in group['handles'].values():
-                        im.remove_hotkey(handle)
-                    group['handles'].clear()
-                    for src, dst in mappings:
-                        try:
-                            handle = im.add_hotkey(
-                                src,
-                                self.make_press_callback(dst),
-                                suppressed=True
-                            )
-                            group['handles'][src] = handle
-                        except Exception as e:
-                            print(f"Failed to bind {src} -> {dst}: {e}")
-
                 self.save_mappings()
+                self.rebuild_mapping_cache()
                 dialog.close()
 
             dialog.on_accept(on_accept)
@@ -173,21 +158,42 @@ class MainWindow(QuolMainWindow):
         group_button.clicked.connect(open_dialog)
 
     def remove_group(self, group_id):
-        """Remove a group and unregister its hotkeys."""
         if group_id not in self.mapping_groups:
             return
 
         group = self.mapping_groups[group_id]
-        im = self.tool_spec.input_manager
-
-        if group['enabled']:
-            for handle in group['handles'].values():
-                im.remove_hotkey(handle)
 
         group['widget'].setParent(None)
         group['widget'].deleteLater()
         del self.mapping_groups[group_id]
+
+        self.rebuild_mapping_cache()
+
         self.setFixedHeight(self.height() - 25)
+
+    def refresh_suppressed_keys(self):
+        suppressed = tuple(self.enabled_mapping_cache.keys())
+
+        im = self.tool_spec.input_manager
+        im.remove_key_press_listener(self.press_listener_id)
+
+        self.press_listener_id = im.add_key_press_listener(
+            self.on_key_press,
+            suppressed=suppressed
+        )
+
+    def rebuild_mapping_cache(self):
+        cache = {}
+
+        for group in self.mapping_groups.values():
+            if not group['enabled']:
+                continue
+
+            for src, dst in group['mappings']:
+                cache[src.lower()] = dst
+
+        self.enabled_mapping_cache = cache
+        self.refresh_suppressed_keys()
 
     # ===============================================================
     # 🔹 SAVE / LOAD
@@ -202,6 +208,7 @@ class MainWindow(QuolMainWindow):
     def load_mappings(self):
         if not os.path.exists(self.mappings_path):
             return
+
         data = read_json(self.mappings_path)
         for name, mappings_dict in data.items():
             self.add_group_row(name, list(mappings_dict.items()))
@@ -211,11 +218,7 @@ class MainWindow(QuolMainWindow):
     # ===============================================================
     def closeEvent(self, event):
         im = self.tool_spec.input_manager
+        im.remove_key_press_listener(self.press_listener_id)
         im.remove_key_release_listener(self.release_listener_id)
-
-        # Unregister all hotkeys
-        for group in self.mapping_groups.values():
-            for handle in group['handles'].values():
-                im.remove_hotkey(handle)
 
         super().closeEvent(event)

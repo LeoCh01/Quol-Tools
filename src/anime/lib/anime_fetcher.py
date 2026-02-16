@@ -1,9 +1,9 @@
-import requests
+import httpx
 from bs4 import BeautifulSoup
 
 
 def get_updated_anime(page=1, sub_only=False):
-    res = requests.get(f'https://9animetv.to/recently-updated?page={page}')
+    res = httpx.get(f'https://9animetv.to/recently-updated?page={page}')
     soup = BeautifulSoup(res.text, 'html.parser')
     items = soup.find_all('div', class_='flw-item')
 

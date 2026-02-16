@@ -1,4 +1,4 @@
-import requests
+import httpx
 from PySide6.QtWidgets import QListWidget, QListWidgetItem, QPushButton, QLabel, QWidget, QHBoxLayout, QVBoxLayout
 from PySide6.QtGui import QDesktopServices, QPixmap, QFont
 from PySide6.QtCore import Qt, QUrl, QObject, QRunnable, QThreadPool, Signal, Slot, QSize
@@ -45,7 +45,7 @@ class ImageDownloadWorker(QRunnable):
     def run(self):
         try:
             headers = {"User-Agent": "Mozilla/5.0"}
-            resp = requests.get(self.url, headers=headers, timeout=10)
+            resp = httpx.get(self.url, headers=headers, timeout=10)
             resp.raise_for_status()
             img_data = resp.content
             self.signal.emit(self.item, img_data)
