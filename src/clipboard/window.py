@@ -121,7 +121,7 @@ class MainWindow(QuolMainWindow):
 
         sticky_window = StickyWindow(self, wid, text, pos)
         self.sticky_notes[wid] = sticky_window
-        self.tool_spec.toggle.connect(sticky_window.toggle_windows)
+        self.tool_spec.toggle_signal.connect(sticky_window.toggle_tool)
 
         sticky_window.show()
         sticky_window.raise_()

@@ -20,11 +20,9 @@ class MainWindow(QuolMainWindow):
             self.test_response = f.read().strip()
 
         self.chat_window = ChatWindow(self)
-        self.tool_spec.toggle.connect(self.chat_window.toggle_windows)
-
-        # self.gpt = GPTWindow(self)
-        # self.tool_spec.toggle.connect(self.gpt.toggle_windows)
-        self.tool_spec.toggle.connect(self.focus)
+        self.tool_spec.toggle_signal.connect(self.chat_window.toggle_tool)
+        self.tool_spec.toggle_signal.connect(self.focus)
+        self.tool_spec.toggle_instant_signal.connect(self.chat_window.toggle_tool_instant)
 
         self.ai = AI(self, self.chat_window)
         self.ai_list = QComboBox()
@@ -33,8 +31,6 @@ class MainWindow(QuolMainWindow):
         self.ai_list_cycle_icon = QIcon(self.tool_spec.path + "/res/img/cycle.svg")
         self.ai_list_cycle_btn = QPushButton(self)
         self.ai_list_cycle_btn.setIcon(self.ai_list_cycle_icon)
-
-        # self.reload_btn_gpt = QPushButton('init')
 
         self.clear_icon = QIcon(self.tool_spec.path + "/res/img/clear.svg")
         self.clear_btn = QPushButton(self)
@@ -65,45 +61,13 @@ class MainWindow(QuolMainWindow):
         self.prompt_layout.addWidget(self.send_btn)
         self.layout.addLayout(self.prompt_layout)
 
-        # self.reload_btn_gpt.clicked.connect(lambda: self.gpt.reload(self.reload_btn_gpt, self.clear_btn, self.send_btn))
         self.ai_list_cycle_btn.clicked.connect(self.on_cycle)
         self.clear_btn.clicked.connect(self.on_clear)
         self.prompt.returnPressed.connect(self.send_prompt)
         self.send_btn.clicked.connect(self.send_prompt)
-        # self.connect_signals()
 
     def on_update_config(self):
-        # self.clear_btn.clicked.disconnect()
-        # self.prompt.returnPressed.disconnect()
-        # self.send_btn.clicked.disconnect()
-        # self.gpt.close()
         self.chat_window.close()
-
-        # self.connect_signals()
-
-    def connect_signals(self):
-        self.swap_widgets()
-        if self.config['gpt']['mode']:
-            self.clear_btn.clicked.connect(self.gpt.on_clear)
-            self.prompt.returnPressed.connect(lambda: self.gpt.on_send(self.prompt, self.img_btn))
-            self.send_btn.clicked.connect(lambda: self.gpt.on_send(self.prompt, self.img_btn))
-
-            self.ai_list.setDisabled(True)
-        else:
-            self.clear_btn.clicked.connect(self.on_clear)
-            self.prompt.returnPressed.connect(self.send_prompt)
-            self.send_btn.clicked.connect(self.send_prompt)
-            self.ai_list.setDisabled(False)
-
-    def swap_widgets(self):
-        if self.config['gpt']['mode']:
-            self.top_layout.replaceWidget(self.ai_list, self.reload_btn_gpt)
-            self.reload_btn_gpt.show()
-            self.ai_list.hide()
-        else:
-            self.top_layout.replaceWidget(self.reload_btn_gpt, self.ai_list)
-            self.ai_list.show()
-            self.reload_btn_gpt.hide()
 
     def on_cycle(self):
         current_index = self.ai_list.currentIndex()
@@ -150,9 +114,9 @@ class MainWindow(QuolMainWindow):
 
         if self.img_btn.isChecked():
             screen = QGuiApplication.primaryScreen()
-            self.tool_spec.toggle_windows_instant(True)
+            self.tool_spec.toggle_instant_signal.emit(False)
             screenshot = screen.grabWindow(0).toImage()
-            self.tool_spec.toggle_windows_instant(False)
+            self.tool_spec.toggle_instant_signal.emit(True)
             screenshot.save(self.tool_spec.path + '/res/img/screenshot.png')
 
         self.set_button_loading_state(True)

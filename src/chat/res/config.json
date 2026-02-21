@@ -26,10 +26,10 @@
     "description": "",
     "dependency": "v4.0.0",
     "geometry": [
-      10,
-      930,
+      550,
+      610,
       500,
-      1
+      80
     ]
   }
 }

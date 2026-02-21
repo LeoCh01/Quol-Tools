@@ -253,9 +253,9 @@ class DrawingWidget(QWidget):
         g = screen.geometry()
         g2 = g.adjusted(0, 0, 0, -20)
 
-        context.toggle_windows_instant(True)
+        context.toggle_instant_signal.emit(False)
         self.screenshot = screen.grabWindow(0, g2.x(), g2.y(), g2.width(), g2.height())
-        context.toggle_windows_instant(False)
+        context.toggle_instant_signal.emit(True)
 
         self.update()
         self.show()
