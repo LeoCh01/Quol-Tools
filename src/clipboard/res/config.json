@@ -1,7 +1,9 @@
 {
   "length": 10,
   "_": {
-    "dependency": "v3.2.0",
+    "version": 1,
+    "description": "",
+    "dependency": "v4.0.0",
     "geometry": [
       10,
       150,

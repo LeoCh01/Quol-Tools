@@ -68,7 +68,7 @@ class AI:
         self.chat_window.set_output()
         self.main_window.set_button_loading_state(False)
 
-        with open(self.main_window.window_info.path + f'/res/logs/{model}.log', 'a', encoding='utf-8') as f:
+        with open(self.main_window.tool_spec.path + f'/res/logs/{model}.log', 'a', encoding='utf-8') as f:
             f.write(f'{datetime.datetime.now()}\nQ: {prompt}\nA: {text.replace("\n\n", "\n")}\n\n')
 
     def on_request_error(self, error):
@@ -87,7 +87,7 @@ class AI:
             else:
                 self.history.append({'role': 'model', 'text': text})
 
-        with open(self.main_window.window_info.path + f'/res/logs/{model}.log', 'a', encoding='utf-8') as f:
+        with open(self.main_window.tool_spec.path + f'/res/logs/{model}.log', 'a', encoding='utf-8') as f:
             if is_user:
                 f.write(f'{datetime.datetime.now()}\nQ: {text}\n')
             else:
@@ -99,7 +99,7 @@ class AI:
     def ollama(self, model, prompt):
         image_path = None
         if self.is_img:
-            image_path = self.main_window.window_info.path + '/res/img/screenshot.png'
+            image_path = self.main_window.tool_spec.path + '/res/img/screenshot.png'
 
         self.thread = OllamaThread(model=model, prompt=prompt, image_path=image_path)
 
@@ -110,7 +110,7 @@ class AI:
         self.thread.start()
 
     def on_ollama_finished(self, prompt, text):
-        with open(self.main_window.window_info.path + '/res/logs/ollama.log', 'a', encoding='utf-8') as f:
+        with open(self.main_window.tool_spec.path + '/res/logs/ollama.log', 'a', encoding='utf-8') as f:
             f.write(f'{datetime.datetime.now()}\nQ: {prompt}\nA: {text.replace("\n\n", "\n")}\n\n')
 
         self.text_content = text
@@ -139,7 +139,7 @@ class AI:
         cur = {'role': 'user', 'parts': [{'text': prompt}]}
 
         if self.is_img:
-            with open(self.main_window.window_info.path + '/res/img/screenshot.png', 'rb') as img_file:
+            with open(self.main_window.tool_spec.path + '/res/img/screenshot.png', 'rb') as img_file:
                 img_data = base64.b64encode(img_file.read()).decode('utf-8')
                 cur['parts'].append({'inline_data': {'mime_type': 'image/png', 'data': img_data}})
 
@@ -169,7 +169,7 @@ class AI:
         cur = {'role': 'user', 'content': [{'type': 'text', 'text': prompt}]}
 
         if self.is_img:
-            with open(self.main_window.window_info.path + '/res/img/screenshot.png', 'rb') as img_file:
+            with open(self.main_window.tool_spec.path + '/res/img/screenshot.png', 'rb') as img_file:
                 img_data = base64.b64encode(img_file.read()).decode('utf-8')
                 cur['content'].append({'type': 'image_url', 'image_url': {'url': f'data:image/png;base64,{img_data}'}})
 

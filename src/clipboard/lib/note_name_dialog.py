@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QLineEdit
 
-from lib.quol_window import QuolDialogWindow
+from qlib.windows.quol_window import QuolDialogWindow
 
 
 class NoteNameDialog(QuolDialogWindow):

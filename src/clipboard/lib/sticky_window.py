@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import QSizePolicy, QTextEdit
 
-from lib.quol_window import QuolResizableSubWindow
+from qlib.windows.quol_window import QuolResizableSubWindow
 
 
 class StickyWindow(QuolResizableSubWindow):
@@ -35,4 +35,4 @@ class StickyWindow(QuolResizableSubWindow):
         self.main_window.sticky_notes.pop(self.wid, None)
 
         if not self.main_window.sticky_notes:
-            self.main_window.window_context.toggle.disconnect(self.toggle_windows)
+            self.main_window.tool_spec.toggle_signal.disconnect(self.toggle_tool)

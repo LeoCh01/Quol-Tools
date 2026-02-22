@@ -1,5 +1,5 @@
 from PySide6.QtWidgets import QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QWidget, QGroupBox
-from lib.quol_window import QuolMainWindow, QuolDialogWindow
+from qlib.windows.quol_window import QuolMainWindow, QuolDialogWindow
 
 
 class KeymapGroupDialog(QuolDialogWindow):

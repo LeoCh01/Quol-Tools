@@ -1,9 +1,12 @@
 {
   "_": {
+    "version": 1,
+    "description": "",
+    "dependency": "v4.0.0",
     "geometry": [
-      930,
-      10,
-      200,
+      360,
+      160,
+      190,
       1
     ]
   }

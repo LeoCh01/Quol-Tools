@@ -1,10 +1,10 @@
-import requests
+import httpx
 from PySide6.QtWidgets import QListWidget, QListWidgetItem, QPushButton, QLabel, QWidget, QHBoxLayout, QVBoxLayout
 from PySide6.QtGui import QDesktopServices, QPixmap, QFont
 from PySide6.QtCore import Qt, QUrl, QObject, QRunnable, QThreadPool, Signal, Slot, QSize
 
-from lib.quol_window import QuolMainWindow
-from lib.window_loader import WindowInfo, WindowContext
+from qlib.windows.quol_window import QuolMainWindow
+from qlib.windows.tool_loader import ToolSpec
 from lib.anime_fetcher import get_updated_anime
 
 # CONFIG
@@ -45,7 +45,7 @@ class ImageDownloadWorker(QRunnable):
     def run(self):
         try:
             headers = {"User-Agent": "Mozilla/5.0"}
-            resp = requests.get(self.url, headers=headers, timeout=10)
+            resp = httpx.get(self.url, headers=headers, timeout=10)
             resp.raise_for_status()
             img_data = resp.content
             self.signal.emit(self.item, img_data)
@@ -98,8 +98,8 @@ class AnimeListItem(QWidget):
 class MainWindow(QuolMainWindow):
     image_ready = Signal(QListWidgetItem, bytes)  # Signal to safely update UI with image
 
-    def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Anime', window_info, window_context, default_geometry=(1460, 10, 240, 1))
+    def __init__(self, tool_spec: ToolSpec):
+        super().__init__('Anime', tool_spec, default_geometry=(1460, 10, 240, 1))
 
         self.current_page = 1
         self.max_pages = MAX_PAGE

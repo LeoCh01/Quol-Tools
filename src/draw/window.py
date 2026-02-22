@@ -1,63 +1,108 @@
 import collections
 
-from PySide6.QtGui import QColor, QMouseEvent, QPainter, Qt, QPixmap, QPen, QShortcut, QKeySequence, QCursor, QPainterPath
-from PySide6.QtWidgets import QPushButton, QHBoxLayout, QWidget, QApplication, QSlider, QLabel, QVBoxLayout
+from PySide6.QtGui import QColor, QMouseEvent, QPainter, Qt, QPixmap, QPen, QShortcut, QKeySequence, QCursor, \
+    QPainterPath, QIcon
+from PySide6.QtWidgets import QPushButton, QHBoxLayout, QWidget, QApplication, QSlider, QLabel, QVBoxLayout, QLineEdit
 from PySide6.QtCore import QPoint, Signal
 
-from lib.quol_window import QuolMainWindow
-from lib.window_loader import WindowInfo, WindowContext
+from qlib.windows.quol_window import QuolMainWindow
+from qlib.windows.tool_loader import ToolSpec
 from lib.color_wheel import ColorWheel
 
 
 class MainWindow(QuolMainWindow):
     toggle = Signal()
 
-    def __init__(self, window_info: WindowInfo, window_context: WindowContext):
-        super().__init__('Draw', window_info, window_context, default_geometry=(550, 10, 190, 1))
+    def __init__(self, tool_spec: ToolSpec):
+        super().__init__('Draw', tool_spec, default_geometry=(360, 10, 190, 1))
 
         self.drawing_widget = DrawingWidget()
 
         self.top_layout = QHBoxLayout()
         self.layout.addLayout(self.top_layout)
 
-        self.color_wheel = ColorWheel()
-        self.color_wheel.color_changed.connect(self.drawing_widget.set_pen_color)
+        self.color_wheel = ColorWheel(circle_radius=42, square_size=33, thickness=12)
+        self.color_wheel.color_changed.connect(self.on_color_changed)
         self.top_layout.addWidget(self.color_wheel)
 
         self.control_layout = QVBoxLayout()
+        self.button_row = QHBoxLayout()
 
-        self.clear_button = QPushButton('Clear')
+        self.clear_button = QPushButton()
+        self.clear_button.setIcon(QIcon(self.tool_spec.path + '/res/img/clear.svg'))
         self.clear_button.clicked.connect(self.drawing_widget.clear_canvas)
-        self.control_layout.addWidget(self.clear_button)
+        self.button_row.addWidget(self.clear_button)
 
-        self.start_button = QPushButton('Start')
+        self.start_button = QPushButton()
+        self.draw_icon = QIcon(self.tool_spec.path + '/res/img/draw.svg')
+        self.stop_icon = QIcon(self.tool_spec.path + '/res/img/stop.svg')
+        self.start_button.setIcon(self.draw_icon)
         self.start_button.clicked.connect(self.on_start_clicked)
-        self.control_layout.addWidget(self.start_button)
+        self.button_row.addWidget(self.start_button)
+        self.is_drawing = False
+
+        self.control_layout.addLayout(self.button_row)
+
+        self.hex_input = QLineEdit()
+        self.hex_input.setPlaceholderText("#RRGGBB")
+        self.hex_input.setMaxLength(7)
+        self.hex_input.editingFinished.connect(self.on_hex_input)
+        self.control_layout.addWidget(self.hex_input)
+
         self.drawing_widget.close_sc.activated.connect(self.on_start_clicked)
+
+        self.stroke_row = QHBoxLayout()
+
+        self.stroke_label = QLabel("2")
+        self.stroke_label.setFixedWidth(20)
+        self.stroke_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.stroke_slider = QSlider(Qt.Orientation.Horizontal)
         self.stroke_slider.setRange(1, 30)
         self.stroke_slider.setValue(2)
         self.stroke_slider.valueChanged.connect(self.update_stroke_size)
-        self.stroke_label = QLabel("2")
-        self.control_layout.addWidget(self.stroke_label)
-        self.control_layout.addWidget(self.stroke_slider)
+
+        self.stroke_row.addWidget(self.stroke_label)
+        self.stroke_row.addWidget(self.stroke_slider)
+
+        self.control_layout.addLayout(self.stroke_row)
 
         self.top_layout.addLayout(self.control_layout)
 
         self.toggle.connect(self.on_start_clicked)
-        self.toggle_id = self.window_context.input_manager.add_hotkey(self.config['draw_toggle'], lambda: self.toggle.emit(), suppressed=True)
+        self.toggle_id = self.tool_spec.input_manager.add_hotkey(self.config['draw_toggle'], lambda: self.toggle.emit(), suppressed=True)
+
+    def on_color_changed(self, color: QColor):
+        self.drawing_widget.set_pen_color(color)
+
+        hex_value = color.name().upper()
+        if self.hex_input.text().upper() != hex_value:
+            self.hex_input.setText(hex_value)
+
+    def on_hex_input(self):
+        text = self.hex_input.text().strip()
+        self.hex_input.clearFocus()
+
+        if not QColor.isValidColor(text):
+            return
+
+        color = QColor(text)
+
+        self.drawing_widget.set_pen_color(color)
+        self.color_wheel.set_color(color)
 
     def on_update_config(self):
-        self.window_context.input_manager.remove_hotkey(self.toggle_id)
-        self.toggle_id = self.window_context.input_manager.add_hotkey(self.config['draw_toggle'], lambda: self.toggle.emit(), suppressed=True)
+        self.tool_spec.input_manager.remove_hotkey(self.toggle_id)
+        self.toggle_id = self.tool_spec.input_manager.add_hotkey(self.config['draw_toggle'], lambda: self.toggle.emit(), suppressed=True)
 
     def on_start_clicked(self):
-        if self.start_button.text() == 'Start':
-            self.start_button.setText('Stop')
-            self.drawing_widget.start_drawing(self.window_context)
+        if not self.is_drawing:
+            self.is_drawing = True
+            self.start_button.setIcon(self.stop_icon)
+            self.drawing_widget.start_drawing(self.tool_spec)
         else:
-            self.start_button.setText('Start')
+            self.is_drawing = False
+            self.start_button.setIcon(self.draw_icon)
             self.drawing_widget.stop_drawing()
 
     def update_stroke_size(self, value):
@@ -208,9 +253,9 @@ class DrawingWidget(QWidget):
         g = screen.geometry()
         g2 = g.adjusted(0, 0, 0, -20)
 
-        context.toggle_windows_instant(True)
+        context.toggle_instant_signal.emit(False)
         self.screenshot = screen.grabWindow(0, g2.x(), g2.y(), g2.width(), g2.height())
-        context.toggle_windows_instant(False)
+        context.toggle_instant_signal.emit(True)
 
         self.update()
         self.show()

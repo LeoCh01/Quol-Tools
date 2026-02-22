@@ -1,9 +1,12 @@
 {
   "toggle_key": " ",
   "_": {
+    "version": 1,
+    "description": "",
+    "dependency": "v4.0.0",
     "geometry": [
-      390,
-      180,
+      200,
+      310,
       150,
       1
     ]

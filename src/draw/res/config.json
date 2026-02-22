@@ -1,7 +1,14 @@
 {
   "draw_toggle": "ctrl+shift+d",
   "_": {
-    "dependency": "v3.2.0",
-    "geometry": [550, 10, 190, 1]
+    "version": 1,
+    "description": "",
+    "dependency": "v4.0.0",
+    "geometry": [
+      360,
+      10,
+      190,
+      1
+    ]
   }
 }

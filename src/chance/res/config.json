@@ -1,8 +1,11 @@
 {
   "_": {
+    "version": 1,
+    "description": "",
+    "dependency": "v4.0.0",
     "geometry": [
-      390,
-      10,
+      200,
+      140,
       150,
       1
     ]
