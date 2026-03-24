@@ -9,7 +9,7 @@ from qlib.windows.tool_loader import ToolSpec
 
 class MainWindow(QuolMainWindow):
     def __init__(self, tool_spec: ToolSpec):
-        super().__init__('Command', tool_spec, default_geometry=(750, 10, 170, 1), show_config=False)
+        super().__init__('CMD', tool_spec, default_geometry=(750, 10, 170, 1), show_config=False)
 
         self.commands_groupbox = QGroupBox('Commands')
         self.commands_layout = QVBoxLayout()

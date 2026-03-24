@@ -1,1 +1,8 @@
+4.1:
+- color_picker: crash handling
+- run_command: rename to "CMD"
+- request: rename to "API"
+
+
+4.0:
 - Quol 4.x migration

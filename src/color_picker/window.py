@@ -1,3 +1,5 @@
+import logging
+
 from PySide6.QtCore import QTimer, QSize, Qt
 from PySide6.QtGui import QPixmap, QColor, QGuiApplication, QCursor, QPainter, QIcon
 from PySide6.QtWidgets import QLabel, QGridLayout, QPushButton
@@ -40,6 +42,7 @@ class MainWindow(QuolMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_color)
         self.esc_id = None
+        self.current_pixmap = None
         self.update_color()
 
     def copy_color(self, t):
@@ -60,9 +63,7 @@ class MainWindow(QuolMainWindow):
 
         self.timer.start(100)
 
-        self.esc_id = self.tool_spec.input_manager.add_key_press_listener(
-            self.on_key_press, suppressed=('esc',)
-        )
+        self.esc_id = self.tool_spec.input_manager.add_key_press_listener(self.on_key_press, suppressed=('esc',))
 
     def on_key_press(self, key):
         if key.lower() != 'esc':
@@ -79,74 +80,82 @@ class MainWindow(QuolMainWindow):
         self.select_btn.setChecked(False)
 
     def update_color(self):
-        screen = QGuiApplication.primaryScreen()
-        if not screen:
-            return
+        try:
+            screen = QGuiApplication.primaryScreen()
+            if not screen:
+                return
 
-        pos = QCursor.pos()
+            pos = QCursor.pos()
 
-        ps = 5
+            ps = 5
 
-        x = (pos.x() - (ps / 2) / self.sf)
-        y = (pos.y() - (ps / 2) / self.sf)
-        w = (ps / self.sf)
-        h = (ps / self.sf)
+            x = (pos.x() - (ps / 2) / self.sf)
+            y = (pos.y() - (ps / 2) / self.sf)
+            w = (ps / self.sf)
+            h = (ps / self.sf)
 
-        if w <= 0 or h <= 0:
-            return
+            if w <= 0 or h <= 0:
+                return
 
-        pixmap = screen.grabWindow(0, x, y, w, h)
-        if pixmap.isNull():
-            return
+            pixmap = screen.grabWindow(0, x, y, w, h)
+            if pixmap.isNull():
+                return
 
-        image = pixmap.toImage()
-        if image.isNull() or image.width() < 3 or image.height() < 3:
-            return
+            image = pixmap.toImage()
+            if image.isNull() or image.width() < 3 or image.height() < 3:
+                return
 
-        scaled_pixmap = QPixmap.fromImage(image).scaled(
-            QSize(int(55 * self.sf), int(55 * self.sf)),
-            Qt.AspectRatioMode.IgnoreAspectRatio,
-            Qt.TransformationMode.FastTransformation,
-        )
+            scaled_pixmap = QPixmap.fromImage(image).scaled(
+                QSize(int(55 * self.sf), int(55 * self.sf)),
+                Qt.AspectRatioMode.IgnoreAspectRatio,
+                Qt.TransformationMode.FastTransformation,
+            )
 
-        self.draw_frame(scaled_pixmap)
-        self.pixmap_label.setPixmap(scaled_pixmap)
+            self.draw_frame(scaled_pixmap)
 
-        center_color = QColor(image.pixel(ps // 2, ps // 2))
-        self.hex.setText(center_color.name())
-        self.rgb.setText(
-            f'{center_color.red()},{center_color.green()},{center_color.blue()}'
-        )
+            self.current_pixmap = scaled_pixmap
+            self.pixmap_label.setPixmap(scaled_pixmap)
+
+            center_color = QColor(image.pixel(ps // 2, ps // 2))
+            self.hex.setText(center_color.name())
+            self.rgb.setText(
+                f'{center_color.red()},{center_color.green()},{center_color.blue()}'
+            )
+        except Exception as e:
+            logging.error(f'Error updating color: {e}')
 
     def draw_frame(self, pixmap: QPixmap):
-        painter = QPainter()
-        if not painter.begin(pixmap):
-            return
+        try:
+            painter = QPainter()
+            if not painter.begin(pixmap):
+                return
 
-        pen = painter.pen()
-        pen.setColor(Qt.GlobalColor.white)
-        pen.setWidth(2)
-        painter.setPen(pen)
+            pen = painter.pen()
+            pen.setColor(Qt.GlobalColor.white)
+            pen.setWidth(2)
+            painter.setPen(pen)
 
-        cx = pixmap.width() / (self.sf * 2)
-        cy = pixmap.height() / (self.sf * 2)
-        sq = pixmap.width() / self.sf
+            cx = pixmap.width() / (self.sf * 2)
+            cy = pixmap.height() / (self.sf * 2)
+            sq = pixmap.width() / self.sf
 
-        a = 5
-        b = 10
+            a = 5
+            b = 10
 
-        painter.drawRect(sq / a * 2, sq / a * 2, sq / a + 2, sq / a + 2)
-        painter.drawRect(0, 0, sq, sq)
+            painter.drawRect(sq / a * 2, sq / a * 2, sq / a + 2, sq / a + 2)
+            painter.drawRect(0, 0, sq, sq)
 
-        pen.setWidth(1)
-        painter.setPen(pen)
+            pen.setWidth(1)
+            painter.setPen(pen)
 
-        painter.drawLine(cx, 0, cx, cx - sq / b - 1)
-        painter.drawLine(0, cy, cy - sq / b - 1, cy)
-        painter.drawLine(cx, sq, cx, cx + sq / b + 1)
-        painter.drawLine(sq, cy, cy + sq / b + 1, cy)
+            painter.drawLine(cx, 0, cx, cx - sq / b - 1)
+            painter.drawLine(0, cy, cy - sq / b - 1, cy)
+            painter.drawLine(cx, sq, cx, cx + sq / b + 1)
+            painter.drawLine(sq, cy, cy + sq / b + 1, cy)
 
-        painter.end()
+            painter.end()
+        except Exception as e:
+            logging.error(f'Error drawing frame: {e}')
 
     def closeEvent(self, event):
         if self.timer.isActive():
@@ -155,5 +164,8 @@ class MainWindow(QuolMainWindow):
         if self.esc_id is not None:
             self.tool_spec.input_manager.remove_key_press_listener(self.esc_id)
             self.esc_id = None
+
+        self.current_pixmap = None
+        self.pixmap_label.clear()
 
         super().closeEvent(event)
