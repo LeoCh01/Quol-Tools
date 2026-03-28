@@ -35,11 +35,15 @@ class ChatWindow(QuolSubWindow):
 
         scrollbar = self.chat_response.verticalScrollBar()
         scroll_pos = scrollbar.value()
+        was_near_bottom = scroll_pos >= (scrollbar.maximum() - 24)
 
         formatted_text = f'{self.style_tag}<body>{data}</body>'
         self.chat_response.setHtml(formatted_text)
 
-        scrollbar.setValue(scroll_pos)
+        if was_near_bottom:
+            scrollbar.setValue(scrollbar.maximum())
+        else:
+            scrollbar.setValue(scroll_pos)
         self.chat_response.repaint()
         QApplication.processEvents()
 
@@ -52,4 +56,3 @@ class ChatWindow(QuolSubWindow):
         super().closeEvent(event)
         # self.setGeometry(QRect(self.g[0], self.g[1], self.g[2], self.g[3]))
         self.main_window.ai.history.clear()
-        self.close()

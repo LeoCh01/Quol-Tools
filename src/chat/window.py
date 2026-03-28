@@ -1,6 +1,4 @@
 import re
-from pynput.mouse import Controller, Button
-from PySide6.QtCore import QTimer
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtWidgets import QPushButton, QComboBox, QLineEdit, QHBoxLayout
 
@@ -8,7 +6,7 @@ from qlib.windows.quol_window import QuolMainWindow
 from qlib.windows.tool_loader import ToolSpec
 from lib.chat_window import ChatWindow
 from lib.ai import AI
-from lib.gpt_window import GPTWindow
+from lib.snip_overlay import SnipOverlay
 
 
 class MainWindow(QuolMainWindow):
@@ -21,7 +19,6 @@ class MainWindow(QuolMainWindow):
 
         self.chat_window = ChatWindow(self)
         self.tool_spec.toggle_signal.connect(self.chat_window.toggle_tool)
-        self.tool_spec.toggle_signal.connect(self.focus)
         self.tool_spec.toggle_instant_signal.connect(self.chat_window.toggle_tool_instant)
 
         self.ai = AI(self, self.chat_window)
@@ -31,10 +28,6 @@ class MainWindow(QuolMainWindow):
         self.ai_list_cycle_icon = QIcon(self.tool_spec.path + "/res/img/cycle.svg")
         self.ai_list_cycle_btn = QPushButton(self)
         self.ai_list_cycle_btn.setIcon(self.ai_list_cycle_icon)
-
-        self.clear_icon = QIcon(self.tool_spec.path + "/res/img/clear.svg")
-        self.clear_btn = QPushButton(self)
-        self.clear_btn.setIcon(self.clear_icon)
 
         self.prompt = QLineEdit()
         self.prompt.setPlaceholderText('Prompt for groq...')
@@ -47,24 +40,23 @@ class MainWindow(QuolMainWindow):
         self.img_btn.setStyleSheet("background-color: #4CAF50;")
         self.img_btn.clicked.connect(self.on_image)
 
-        self.send_icon = QIcon(self.tool_spec.path + "/res/img/send.svg")
-        self.send_btn = QPushButton(self)
-        self.send_btn.setIcon(self.send_icon)
-        self.send_btn.setStyleSheet("padding-left: 5px; padding-right: 5px;")
+        self.snip_icon = QIcon(self.tool_spec.path + "/res/img/snip.svg")
+        self.snip_btn = QPushButton(self)
+        self.snip_btn.setIcon(self.snip_icon)
+        self.snip_btn.setStyleSheet("padding-left: 5px; padding-right: 5px;")
+        self.snip_overlay = None
 
         self.prompt_layout = QHBoxLayout()
 
         self.prompt_layout.addWidget(self.ai_list_cycle_btn)
-        self.prompt_layout.addWidget(self.clear_btn)
         self.prompt_layout.addWidget(self.prompt)
         self.prompt_layout.addWidget(self.img_btn)
-        self.prompt_layout.addWidget(self.send_btn)
+        self.prompt_layout.addWidget(self.snip_btn)
         self.layout.addLayout(self.prompt_layout)
 
         self.ai_list_cycle_btn.clicked.connect(self.on_cycle)
-        self.clear_btn.clicked.connect(self.on_clear)
+        self.snip_btn.clicked.connect(self.on_snip)
         self.prompt.returnPressed.connect(self.send_prompt)
-        self.send_btn.clicked.connect(self.send_prompt)
 
     def on_update_config(self):
         self.chat_window.close()
@@ -75,44 +67,45 @@ class MainWindow(QuolMainWindow):
         self.ai_list.setCurrentIndex(next_index)
         self.prompt.setPlaceholderText(f'Prompt for {self.ai_list.currentText()}...')
 
-    def on_clear(self):
-        self.chat_window.chat_response.clear()
-        self.ai.history.clear()
-
     def on_image(self):
         if self.img_btn.isChecked():
             self.img_btn.setStyleSheet("background-color: #4CAF50;")
         else:
             self.img_btn.setStyleSheet("background-color: #F44336;")
 
-    def focus(self):
-        # if self.config['config']['auto_focus'] and not self.tool_spec.get_is_hidden():
-        #     self.raise_()
-        #     self.activateWindow()
-        #     self.prompt.setFocus()
-        # elif self.config['config']['auto_focus']:
-        #     self.prompt.clearFocus()
-        
-        if self.config['config']['auto_focus'] and not self.tool_spec.get_is_hidden():
-            QTimer.singleShot(210, self._focus_action)
-
-    def _focus_action(self):
-        if self.tool_spec.get_is_hidden():
+    def on_snip(self):
+        screen = QGuiApplication.primaryScreen()
+        if not screen:
             return
 
-        mouse = Controller()
-        cur = mouse.position
-        sf = QGuiApplication.primaryScreen().devicePixelRatio()
+        self.tool_spec.toggle_instant_signal.emit(False)
+        screenshot = screen.grabWindow(0)
+        self.tool_spec.toggle_instant_signal.emit(True)
 
-        mouse.position = ((self.x() + 100) * sf, (self.y() + 60) * sf)
-        mouse.click(Button.left, 1)
-        mouse.position = [cur[0], cur[1]]
+        self.snip_overlay = SnipOverlay(screenshot, self.on_snip_selected)
+        self.snip_overlay.showFullScreen()
+        self.snip_overlay.raise_()
+        self.snip_overlay.activateWindow()
 
-    def send_prompt(self):
+    def on_snip_selected(self, cropped):
+        if cropped.isNull():
+            return
+
+        cropped.toImage().save(self.tool_spec.path + '/res/img/screenshot.png')
+
+        self.img_btn.setChecked(True)
+        self.on_image()
+
+        if not self.prompt.text().strip():
+            self.prompt.setText(self.config['config']['snip'])
+
+        self.send_prompt(use_existing_image=True)
+
+    def send_prompt(self, use_existing_image=False):
         self.ai.is_img = self.img_btn.isChecked()
         self.ai.is_hist = self.config['config']['history']
 
-        if self.img_btn.isChecked():
+        if self.img_btn.isChecked() and not use_existing_image:
             screen = QGuiApplication.primaryScreen()
             self.tool_spec.toggle_instant_signal.emit(False)
             screenshot = screen.grabWindow(0).toImage()
@@ -120,7 +113,7 @@ class MainWindow(QuolMainWindow):
             screenshot.save(self.tool_spec.path + '/res/img/screenshot.png')
 
         self.set_button_loading_state(True)
-        QTimer.singleShot(0, self.start_chat)
+        self.start_chat()
 
     def start_chat(self):
         s = self.prompt.text().split()
@@ -149,11 +142,11 @@ class MainWindow(QuolMainWindow):
 
     def set_button_loading_state(self, is_loading):
         if is_loading:
-            self.send_btn.setEnabled(False)
+            self.snip_btn.setEnabled(False)
         else:
-            self.send_btn.setEnabled(True)
+            self.snip_btn.setEnabled(True)
 
     def closeEvent(self, event):
         self.chat_window.close()
         # self.gpt.close()
-        super().close()
+        super().closeEvent(event)

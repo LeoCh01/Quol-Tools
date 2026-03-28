@@ -11,7 +11,6 @@ class AI:
     def __init__(self, main_window: 'MainWindow', chat_window: 'ChatWindow'):
         self.main_window = main_window
         self.chat_window = chat_window
-        self.ollama_client = None
         self.current_type = None
 
         self.is_img = True
@@ -25,14 +24,16 @@ class AI:
     def prompt(self, model, d):
         self.current_type = model
         self.chat_window.show()
-        self.chat_window.set_output('<p>Loading...</p><br><br><br><br>')
+        self.chat_window.set_output('<p>Loading...</p>')
         self.chat_window.scroll_to_bottom()
 
         if self.main_window.test_response:
             self.chat_window.chat_response.setHtml(self.main_window.test_response)
+            self.main_window.set_button_loading_state(False)
             return
 
         if model == 'ollama':
+            self.add_history('ollama', d['prompt'], None, True)
             self.ollama(d['model'], d['prompt'])
 
         elif model == 'gemini':
@@ -68,9 +69,6 @@ class AI:
         self.chat_window.set_output()
         self.main_window.set_button_loading_state(False)
 
-        with open(self.main_window.tool_spec.path + f'/res/logs/{model}.log', 'a', encoding='utf-8') as f:
-            f.write(f'{datetime.datetime.now()}\nQ: {prompt}\nA: {text.replace("\n\n", "\n")}\n\n')
-
     def on_request_error(self, error):
         self.loading_timer.stop()
         self.text_content = str(error)
@@ -93,8 +91,11 @@ class AI:
             else:
                 f.write(f'A: {text.replace("\n\n", "\n")}\n\n')
 
-        if len(self.history) > (self.max_hist - 1) * 2:
-            self.history.pop(0)
+        hist_limit = max(0, int(self.max_hist)) * 2
+        if hist_limit == 0:
+            self.history.clear()
+        elif len(self.history) > hist_limit:
+            self.history = self.history[-hist_limit:]
 
     def ollama(self, model, prompt):
         image_path = None
@@ -110,10 +111,9 @@ class AI:
         self.thread.start()
 
     def on_ollama_finished(self, prompt, text):
-        with open(self.main_window.tool_spec.path + '/res/logs/ollama.log', 'a', encoding='utf-8') as f:
-            f.write(f'{datetime.datetime.now()}\nQ: {prompt}\nA: {text.replace("\n\n", "\n")}\n\n')
-
         self.text_content = text
+        self.add_history('ollama', text, None, False)
+        self.chat_window.set_output()
         self.main_window.set_button_loading_state(False)
 
     def on_ollama_error(self, error):

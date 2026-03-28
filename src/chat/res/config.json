@@ -11,9 +11,9 @@
     "apikey": ""
   },
   "config": {
-    "auto_focus": false,
     "history": true,
-    "max_history": 10
+    "max_history": 10,
+    "snip": "What is this image?"
   },
   "commands": {
     "/t": "translate any {0} text on screen to {1:english}",
@@ -25,11 +25,6 @@
     "version": 1,
     "description": "",
     "dependency": "v4.0.0",
-    "geometry": [
-      550,
-      610,
-      500,
-      80
-    ]
+    "geometry": [550, 610, 500, 1]
   }
 }
