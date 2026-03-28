@@ -22,7 +22,7 @@
     "/i": "what is this image?"
   },
   "_": {
-    "version": 1,
+    "version": 2,
     "description": "",
     "dependency": "v4.0.0",
     "geometry": [550, 610, 500, 1]
