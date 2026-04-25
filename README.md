@@ -6,9 +6,6 @@ This repository hosts the zip files (plugins/tools) for the [Quol](https://githu
 
 ## **Tools Overview**
 
-**Anime**  
-A tool to display the most recently aired anime.
-
 **API**  
 A tool to make HTTP requests (mini Postman).
 
