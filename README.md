@@ -9,9 +9,6 @@ This repository hosts the zip files (plugins/tools) for the [Quol](https://githu
 **API**  
 A tool to make HTTP requests (mini Postman).
 
-**Clipboard**  
-A tool to access clipboard history and create sticky notes.
-
 **Color Picker**  
 A tool to grab colors from the screen (RGB/HEX).
 
