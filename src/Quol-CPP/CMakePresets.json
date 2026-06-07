@@ -1,0 +1,38 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "qt-mingw-plugins-debug",
+      "displayName": "Qt MinGW Plugins Debug",
+      "generator": "MinGW Makefiles",
+      "binaryDir": "${sourceDir}/build/plugins-debug",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "qt-mingw-plugins-release",
+      "displayName": "Qt MinGW Plugins Release",
+      "generator": "MinGW Makefiles",
+      "binaryDir": "${sourceDir}/build/plugins-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "qt-mingw-plugins-debug",
+      "configurePreset": "qt-mingw-plugins-debug"
+    },
+    {
+      "name": "qt-mingw-plugins-release",
+      "configurePreset": "qt-mingw-plugins-release"
+    }
+  ]
+}

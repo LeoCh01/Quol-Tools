@@ -1,0 +1,33 @@
+{
+  "_": {
+    "default_geometry": [10, 930, 500, 0],
+    "name": "Chat",
+    "version": 1,
+    "description": "Chat actions row",
+    "providers": ["groq", "gemini", "ollama"],
+    "provider_index": 0,
+    "include_image": true
+  },
+  "ollama": {
+    "model": "gemma3"
+  },
+  "gemini": {
+    "model": "gemini-2.5-flash",
+    "apikey": ""
+  },
+  "groq": {
+    "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "apikey": ""
+  },
+  "config": {
+    "history": true,
+    "max_history": 10,
+    "snip": "What is this image?"
+  },
+  "commands": {
+    "/t": "translate any {0} text on screen to {1:english}",
+    "/s": "how do I solve this question",
+    "/e": "explain this in simple terms",
+    "/i": "what is this image?"
+  }
+}

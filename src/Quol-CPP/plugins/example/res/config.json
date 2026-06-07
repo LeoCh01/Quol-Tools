@@ -1,0 +1,22 @@
+{
+  "_": {
+    "default_geometry": [400, 400, 280, 0],
+    "name": "Example",
+    "version": 1,
+    "description": "Example Quol C++ plugin"
+  },
+  "sss": "hello",
+  "send_combo": "ctrl+a",
+  "a": 3,
+  "b": 64,
+  "op": [["+", "-", "*", "/"], 0],
+  "nested": {
+    "note": "nested object",
+    "enabled": true,
+    "mode": [["low", "medium", "high"], 1],
+    "inner": {
+      "label": "inner value",
+      "choice": [["alpha", "beta", "gamma"], 2]
+    }
+  }
+}

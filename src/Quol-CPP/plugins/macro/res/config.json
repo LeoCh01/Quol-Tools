@@ -1,0 +1,12 @@
+{
+  "_": {
+    "name": "Macro",
+    "default_geometry": [550, 10, 160, 0],
+    "version": 1,
+    "description": "Record and play back keyboard and mouse macro sequences."
+  },
+  "hotkey_record": "f1",
+  "hotkey_stop_record": "f1",
+  "hotkey_play": "f2",
+  "hotkey_stop_play": "f3"
+}
