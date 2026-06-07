@@ -17,6 +17,13 @@ set_target_properties(color_picker_plugin PROPERTIES
 )
 
 add_custom_command(TARGET color_picker_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:color_picker_plugin>/res/img
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/config.json
+        $<TARGET_FILE_DIR:color_picker_plugin>/res/config.json
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/img
+        $<TARGET_FILE_DIR:color_picker_plugin>/res/img
     COMMAND ${CMAKE_COMMAND} -E make_directory ${QUOL_RUNTIME_DIR}/plugins/colorPicker/res/img
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:color_picker_plugin>

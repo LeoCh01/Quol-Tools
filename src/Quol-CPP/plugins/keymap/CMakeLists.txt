@@ -21,6 +21,10 @@ set_target_properties(keymap_plugin PROPERTIES
 )
 
 add_custom_command(TARGET keymap_plugin POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:keymap_plugin>/res
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/config.json
+        $<TARGET_FILE_DIR:keymap_plugin>/res/config.json
     COMMAND ${CMAKE_COMMAND} -E make_directory ${QUOL_RUNTIME_DIR}/plugins/keymap/res
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:keymap_plugin>

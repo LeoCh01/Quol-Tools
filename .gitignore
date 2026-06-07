@@ -5,4 +5,4 @@ build/
 dist/
 
 CMakeUserPresets.json
-qlib/
+plugin-zip-config.json
