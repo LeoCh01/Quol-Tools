@@ -24,57 +24,34 @@
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+static constexpr const char *kEventTypeNames[] = {
+    "KeyDown",          // 0
+    "KeyUp",            // 1
+    "MouseMove",        // 2
+    "MouseLeftDown",    // 3
+    "MouseLeftUp",      // 4
+    "MouseRightDown",   // 5
+    "MouseRightUp",     // 6
+    "MouseMiddleDown",  // 7
+    "MouseMiddleUp",    // 8
+    "MouseWheelUp",     // 9
+    "MouseWheelDown",   // 10
+};
+
+static_assert(std::size(kEventTypeNames) == 11, "kEventTypeNames must match MacroEvent::Type enum size");
+
 static QString eventTypeToString(MacroEvent::Type t) {
-    switch (t) {
-        case MacroEvent::Type::KeyDown:
-            return "KeyDown";
-        case MacroEvent::Type::KeyUp:
-            return "KeyUp";
-        case MacroEvent::Type::MouseMove:
-            return "MouseMove";
-        case MacroEvent::Type::MouseLeftDown:
-            return "MouseLeftDown";
-        case MacroEvent::Type::MouseLeftUp:
-            return "MouseLeftUp";
-        case MacroEvent::Type::MouseRightDown:
-            return "MouseRightDown";
-        case MacroEvent::Type::MouseRightUp:
-            return "MouseRightUp";
-        case MacroEvent::Type::MouseMiddleDown:
-            return "MouseMiddleDown";
-        case MacroEvent::Type::MouseMiddleUp:
-            return "MouseMiddleUp";
-        case MacroEvent::Type::MouseWheelUp:
-            return "MouseWheelUp";
-        case MacroEvent::Type::MouseWheelDown:
-            return "MouseWheelDown";
-    }
-    return "Unknown";
+    const int idx = static_cast<int>(t);
+    if (idx >= 0 && idx < static_cast<int>(std::size(kEventTypeNames)))
+        return QString::fromLatin1(kEventTypeNames[idx]);
+    return QStringLiteral("Unknown");
 }
 
 static MacroEvent::Type eventTypeFromString(const QString &s) {
-    if (s == "KeyDown")
-        return MacroEvent::Type::KeyDown;
-    if (s == "KeyUp")
-        return MacroEvent::Type::KeyUp;
-    if (s == "MouseMove")
-        return MacroEvent::Type::MouseMove;
-    if (s == "MouseLeftDown")
-        return MacroEvent::Type::MouseLeftDown;
-    if (s == "MouseLeftUp")
-        return MacroEvent::Type::MouseLeftUp;
-    if (s == "MouseRightDown")
-        return MacroEvent::Type::MouseRightDown;
-    if (s == "MouseRightUp")
-        return MacroEvent::Type::MouseRightUp;
-    if (s == "MouseMiddleDown")
-        return MacroEvent::Type::MouseMiddleDown;
-    if (s == "MouseMiddleUp")
-        return MacroEvent::Type::MouseMiddleUp;
-    if (s == "MouseWheelUp")
-        return MacroEvent::Type::MouseWheelUp;
-    if (s == "MouseWheelDown")
-        return MacroEvent::Type::MouseWheelDown;
+    for (int i = 0; i < static_cast<int>(std::size(kEventTypeNames)); ++i) {
+        if (s == QLatin1StringView(kEventTypeNames[i]))
+            return static_cast<MacroEvent::Type>(i);
+    }
     return MacroEvent::Type::KeyDown;
 }
 
@@ -142,7 +119,6 @@ void Macro::initialize(const QString &pluginRootPath, const PluginConfig &plugin
 
     connect(&m_playTimer, &QTimer::timeout, this, &Macro::scheduleNextEvent);
     applyActionIcons();
-    applyHotkeys();
 }
 
 QWidget *Macro::createWidget(QWidget *parent) {
@@ -603,16 +579,9 @@ void Macro::updateUi() {
     const bool hasEvents = !m_events.isEmpty();
 
     if (m_idleLabel) {
-        if (recording) {
-            m_idleLabel->setText("RUNNING");
-            m_idleLabel->setStyleSheet(QString());
-        } else if (playing) {
-            m_idleLabel->setText("RUNNING");
-            m_idleLabel->setStyleSheet(QString());
-        } else {
-            m_idleLabel->setText("IDLE");
-            m_idleLabel->setStyleSheet(QString());
-        }
+        const bool running = recording || playing;
+        m_idleLabel->setText(running ? QStringLiteral("RUNNING") : QStringLiteral("IDLE"));
+        m_idleLabel->setStyleSheet(QString());
     }
 
     if (m_eventCountLabel)

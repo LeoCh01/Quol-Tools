@@ -1,7 +1,6 @@
 #pragma once
 
 #include "plugin_api/IQuolPlugin.hpp"
-#include "plugin_api/PluginConfig.hpp"
 
 #include <QList>
 #include <QObject>

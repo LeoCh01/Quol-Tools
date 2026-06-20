@@ -3,6 +3,7 @@
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QEventLoop>
 #include <QHBoxLayout>
 #include <QJsonDocument>
 #include <QLabel>

@@ -1,8 +1,6 @@
 #pragma once
 
-#include "core/InputManager.hpp"
 #include "plugin_api/IQuolPlugin.hpp"
-#include "plugin_api/PluginConfig.hpp"
 
 #include <QElapsedTimer>
 #include <QJsonObject>

@@ -107,17 +107,12 @@ void Draw::onUpdateConfig(const PluginConfig &pluginConfig) {
 }
 
 void Draw::shutdown() {
-    // Stop any active drawing session
-    if (m_drawing) {
-        m_drawing = false;
-        if (m_overlay)
-            m_overlay->stopDrawing();
-    }
+    if (m_drawing && m_overlay)
+        m_overlay->stopDrawing();
+    m_drawing = false;
 
-    if (m_overlay) {
-        delete m_overlay;
-        m_overlay = nullptr;
-    }
+    delete m_overlay;
+    m_overlay = nullptr;
 
     auto *im = m_services ? m_services->inputManager() : nullptr;
     if (im) {
@@ -150,9 +145,7 @@ void Draw::applyHotkeys() {
     if (!toggleCombo.isEmpty())
         m_toggleHotkeyId = im->addHotkey(toggleCombo, [this]() { toggleDrawing(); }, true);
 
-    // Undo hotkey — only active while drawing; re-register when config changes
-    // (the live undo hotkey is registered in toggleDrawing)
-    // Store the combo for use in toggleDrawing
+    // Undo hotkey is registered in toggleDrawing() when drawing starts
 }
 
 void Draw::toggleDrawing() {
