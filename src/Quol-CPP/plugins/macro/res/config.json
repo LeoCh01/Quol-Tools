@@ -1,7 +1,7 @@
 {
   "_": {
     "name": "Macro",
-    "default_geometry": [550, 10, 160, 0],
+    "default_geometry": [550, 10, 170, 0],
     "version": 1,
     "description": "Record and play back keyboard and mouse macro sequences."
   },
