@@ -1,6 +1,8 @@
 add_library(api_plugin MODULE
     Api.cpp
     Api.hpp
+    ${QUOL_HOST_SOURCE_DIR}/ui/QuolPopupWindow.cpp
+    ${QUOL_HOST_SOURCE_DIR}/ui/TitleBar.cpp
 )
 
 target_include_directories(api_plugin PRIVATE

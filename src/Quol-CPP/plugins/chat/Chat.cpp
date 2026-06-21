@@ -303,20 +303,6 @@ void Chat::ensureOutputWindow() {
     m_outputBrowser->document()->setDocumentMargin(0);
     m_outputWindow->addContent(m_outputBrowser);
 
-    centerOutputWindow();
-}
-
-void Chat::centerOutputWindow() {
-    if (!m_outputWindow)
-        return;
-
-    QScreen *screen = QGuiApplication::primaryScreen();
-    if (!screen)
-        return;
-
-    const QRect available = screen->availableGeometry();
-    const QSize size = m_outputWindow->size();
-    m_outputWindow->move(available.center().x() - size.width() / 2, available.center().y() - size.height() / 2);
 }
 
 void Chat::setOutputText(const QString &html) {
@@ -325,7 +311,6 @@ void Chat::setOutputText(const QString &html) {
         return;
 
     m_outputBrowser->setHtml(html);
-    centerOutputWindow();
 
     m_outputWindow->show();
     m_outputWindow->raise();

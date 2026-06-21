@@ -47,7 +47,6 @@ private:
     void ensureOutputWindow();
     void setOutputText(const QString &html);
     QString buildConversationHtml(const QString &pendingAssistantText = QString()) const;
-    void centerOutputWindow();
 
     QString applyCommandTemplate(const QString &rawPrompt) const;
     QPixmap capturePrimaryScreenPixmap() const;

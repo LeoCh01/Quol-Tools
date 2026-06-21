@@ -1,8 +1,8 @@
 #include "plugins/api/Api.hpp"
 
+#include "ui/QuolPopupWindow.hpp"
+
 #include <QComboBox>
-#include <QDialog>
-#include <QDialogButtonBox>
 #include <QEventLoop>
 #include <QHBoxLayout>
 #include <QJsonDocument>
@@ -134,29 +134,23 @@ void Api::sendRequest() {
 }
 
 void Api::openHeadersDialog() {
-    auto *dialog = new QDialog(m_sendButton ? m_sendButton->window() : nullptr);
-    dialog->setWindowTitle(QStringLiteral("Edit Headers"));
-    dialog->resize(400, 300);
+    auto *popup = new QuolPopupWindow(QStringLiteral("Edit Headers"), m_sendButton ? m_sendButton->window() : nullptr);
+    popup->resize(400, 300);
 
-    auto *layout = new QVBoxLayout(dialog);
-
-    auto *editor = new QPlainTextEdit(dialog);
+    auto *editor = new QPlainTextEdit(popup);
     editor->setPlainText(QString::fromUtf8(QJsonDocument(m_headers).toJson(QJsonDocument::Indented)));
-    layout->addWidget(editor);
+    popup->addContent(editor);
 
-    auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel, dialog);
-    layout->addWidget(buttons);
-
-    QObject::connect(buttons, &QDialogButtonBox::accepted, dialog, [this, dialog, editor]() {
+    auto *saveBtn = new QPushButton(QStringLiteral("Save Headers"), popup);
+    QObject::connect(saveBtn, &QPushButton::clicked, popup, [this, popup, editor]() {
         const QJsonDocument doc = QJsonDocument::fromJson(editor->toPlainText().toUtf8());
         if (doc.isObject())
             m_headers = doc.object();
-        dialog->accept();
+        popup->close();
     });
-    QObject::connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::reject);
+    popup->addContent(saveBtn);
 
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->show();
+    popup->show();
 }
 
 void Api::showResponse(
@@ -167,42 +161,35 @@ void Api::showResponse(
     const QString &body,
     const QJsonObject &headers
 ) {
-    auto *dialog = new QDialog(m_sendButton ? m_sendButton->window() : nullptr);
-    dialog->setWindowTitle(QString::number(statusCode));
-    dialog->resize(600, 400);
+    auto *popup = new QuolPopupWindow(QString::number(statusCode), m_sendButton ? m_sendButton->window() : nullptr);
+    popup->resize(600, 400);
 
-    auto *layout = new QVBoxLayout(dialog);
-
-    auto *textEdit = new QPlainTextEdit(dialog);
+    auto *textEdit = new QPlainTextEdit(popup);
     textEdit->setPlainText(responseText);
     textEdit->setReadOnly(true);
-    layout->addWidget(textEdit, 1);
+    popup->addContent(textEdit);
 
-    auto *buttonLayout = new QHBoxLayout();
+    auto *buttonRow = new QHBoxLayout();
 
-    auto *resendBtn = new QPushButton(QStringLiteral("Resend Request"), dialog);
-    buttonLayout->addWidget(resendBtn);
+    auto *resendBtn = new QPushButton(QStringLiteral("Resend Request"), popup);
+    auto *editBtn = new QPushButton(QStringLiteral("Edit Request"), popup);
 
-    auto *editBtn = new QPushButton(QStringLiteral("Edit Request"), dialog);
-    buttonLayout->addWidget(editBtn);
-
-    layout->addLayout(buttonLayout);
-
-    QObject::connect(resendBtn, &QPushButton::clicked, dialog, [this, dialog, url, method, body, headers]() {
+    QObject::connect(resendBtn, &QPushButton::clicked, popup, [popup, textEdit, url, method, body, headers]() {
         const auto [code, text] = doSyncRequest(url, method, body, headers);
-        dialog->setWindowTitle(QString::number(code));
-        auto *te = dialog->findChild<QPlainTextEdit *>();
-        if (te)
-            te->setPlainText(text);
+        popup->titleBar()->setTitle(QString::number(code));
+        textEdit->setPlainText(text);
     });
 
-    QObject::connect(editBtn, &QPushButton::clicked, dialog, [this, url, method, body, headers]() {
+    QObject::connect(editBtn, &QPushButton::clicked, popup, [this, url, method, body, headers]() {
         m_headers = headers;
         m_urlInput->setText(url);
         m_methodDropdown->setCurrentText(method);
         m_bodyInput->setPlainText(body);
     });
 
-    dialog->setAttribute(Qt::WA_DeleteOnClose);
-    dialog->show();
+    buttonRow->addWidget(resendBtn);
+    buttonRow->addWidget(editBtn);
+    popup->addContent(buttonRow);
+
+    popup->show();
 }
