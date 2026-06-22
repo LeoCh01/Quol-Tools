@@ -30,7 +30,10 @@ A tool to create custom key mappings.
 **Macros**  
 A tool to record and play back mouse and keyboard actions.
 
-**Stopwatch**  
-A tool to measure elapsed time
+**Misc**  
+A tool to manage other custom-windowed tools:
+
+- Stopwatch
+- ...
 
 ---

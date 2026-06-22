@@ -1,6 +1,6 @@
 {
   "_": {
-    "default_geometry": [200, 120, 160, 0],
+    "default_geometry": [200, 310, 150, 0],
     "name": "Misc",
     "version": 1,
     "description": "Miscellaneous tools (stopwatch, more to come)"

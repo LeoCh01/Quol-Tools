@@ -1,0 +1,8 @@
+{
+  "_": {
+    "default_geometry": [730, 10, 170, 0],
+    "name": "CMD",
+    "version": 1,
+    "description": "Custom shell command launcher"
+  }
+}
