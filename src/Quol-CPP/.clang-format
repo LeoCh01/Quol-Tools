@@ -1,0 +1,51 @@
+---
+Language: Cpp
+BasedOnStyle: Google
+Standard: Latest
+
+# Indentation
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ContinuationIndentWidth: 4
+
+# Braces and layout
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: None
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: Never
+
+# Includes
+SortIncludes: CaseSensitive
+IncludeBlocks: Preserve
+
+# Pointers/references
+PointerAlignment: Right
+ReferenceAlignment: Pointer
+
+# Line length and wrapping
+ColumnLimit: 120
+BreakBeforeBinaryOperators: NonAssignment
+AlignAfterOpenBracket: BlockIndent
+BinPackParameters: false
+BinPackArguments: false
+
+# Spacing
+SpaceBeforeParens: ControlStatements
+SpacesInParentheses: false
+SpaceInEmptyParentheses: false
+SpaceAfterCStyleCast: true
+SpacesInAngles: Never
+
+# Constructor initializer lists
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: NextLine
+
+# Access modifiers and namespaces
+AccessModifierOffset: -4
+NamespaceIndentation: None
+
+# Keep comments readable
+ReflowComments: true
+...

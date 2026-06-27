@@ -1,0 +1,44 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 21,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "qt-mingw-plugins-debug-local",
+      "displayName": "Qt MinGW Plugins Debug (Local)",
+      "inherits": "qt-mingw-plugins-debug",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "C:/Qt/6.11.0/mingw_64",
+        "CMAKE_C_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/g++.exe",
+        "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/mingw1310_64/bin/mingw32-make.exe",
+        "QUOL_HOST_ROOT": "C:/path/to/Quol/Quol-CPP"
+      }
+    },
+    {
+      "name": "qt-mingw-plugins-release-local",
+      "displayName": "Qt MinGW Plugins Release (Local)",
+      "inherits": "qt-mingw-plugins-release",
+      "cacheVariables": {
+        "CMAKE_PREFIX_PATH": "C:/Qt/6.11.0/mingw_64",
+        "CMAKE_C_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/gcc.exe",
+        "CMAKE_CXX_COMPILER": "C:/Qt/Tools/mingw1310_64/bin/g++.exe",
+        "CMAKE_MAKE_PROGRAM": "C:/Qt/Tools/mingw1310_64/bin/mingw32-make.exe",
+        "QUOL_HOST_ROOT": "C:/path/to/Quol/Quol-CPP"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "qt-mingw-plugins-debug-local",
+      "configurePreset": "qt-mingw-plugins-debug-local"
+    },
+    {
+      "name": "qt-mingw-plugins-release-local",
+      "configurePreset": "qt-mingw-plugins-release-local"
+    }
+  ]
+}
