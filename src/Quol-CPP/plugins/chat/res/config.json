@@ -2,7 +2,7 @@
   "_": {
     "default_geometry": [10, 930, 500, 0],
     "name": "Chat",
-    "version": 1,
+    "version": 2,
     "description": "Chat actions row",
     "providers": ["groq", "gemini", "ollama"],
     "provider_index": 0,

@@ -26,6 +26,7 @@
 #include <QScrollBar>
 #include <QTextBrowser>
 #include <QTextDocument>
+#include <QTimer>
 #include <QUrl>
 #include <QWidget>
 
@@ -126,6 +127,12 @@ void Chat::onUpdateConfig(const PluginConfig &pluginConfig) {
 
 void Chat::shutdown() {
     cancelSnipMode();
+
+    if (m_loadingTimer) {
+        m_loadingTimer->stop();
+        delete m_loadingTimer;
+        m_loadingTimer = nullptr;
+    }
 
     if (m_reply) {
         m_reply->abort();
@@ -246,7 +253,22 @@ void Chat::submitPrompt(bool useExistingSnipImage) {
     m_pendingProvider = provider;
 
     setControlsEnabled(false);
-    setOutputText(buildConversationHtml(QStringLiteral("Loading...")));
+    m_requestTimer.start();
+    if (!m_loadingTimer) {
+        m_loadingTimer = new QTimer(this);
+        m_loadingTimer->setInterval(100);
+        QObject::connect(m_loadingTimer, &QTimer::timeout, this, [this]() {
+            if (m_outputBrowser) {
+                const double elapsed = m_requestTimer.elapsed() / 1000.0;
+                const QString text = QStringLiteral("Loading... (%1 s)").arg(elapsed, 0, 'f', 1);
+                m_outputBrowser->setHtml(buildConversationHtml(text));
+                auto *sb = m_outputBrowser->verticalScrollBar();
+                sb->setValue(sb->maximum());
+            }
+        });
+    }
+    m_loadingTimer->start();
+    setOutputText(buildConversationHtml(QStringLiteral("Loading... (0.0 s)")));
 
     dispatchProviderRequest(provider, prompt, imageBase64);
 
@@ -295,6 +317,7 @@ void Chat::ensureOutputWindow() {
     QObject::connect(m_outputWindow, &QObject::destroyed, this, [this]() {
         m_outputWindow = nullptr;
         m_outputBrowser = nullptr;
+        m_history.clear();
     });
     m_outputWindow->resize(500, 600);
 
@@ -302,7 +325,6 @@ void Chat::ensureOutputWindow() {
     m_outputBrowser->setOpenExternalLinks(true);
     m_outputBrowser->document()->setDocumentMargin(0);
     m_outputWindow->addContent(m_outputBrowser);
-
 }
 
 void Chat::setOutputText(const QString &html) {
@@ -479,6 +501,9 @@ void Chat::onRequestFinished() {
         answer = QString::fromUtf8(raw);
     }
 
+    if (m_loadingTimer)
+        m_loadingTimer->stop();
+
     if (answer.trimmed().isEmpty())
         answer = QStringLiteral("(no response)");
 
@@ -493,6 +518,9 @@ void Chat::onRequestFinished() {
 
 void Chat::onRequestError(QNetworkReply::NetworkError code) {
     Q_UNUSED(code)
+    if (m_loadingTimer)
+        m_loadingTimer->stop();
+
     const QString msg = m_reply ? m_reply->errorString() : QStringLiteral("Unknown network error");
     setOutputText(buildConversationHtml(QStringLiteral("Error: ") + msg));
     setControlsEnabled(true);

@@ -3,6 +3,7 @@
 #include "plugin_api/IQuolPlugin.hpp"
 #include "plugins/chat/lib/providers/ProviderTypes.hpp"
 
+#include <QElapsedTimer>
 #include <QMap>
 #include <QNetworkReply>
 #include <QObject>
@@ -14,6 +15,7 @@ class QNetworkAccessManager;
 class QPixmap;
 class QPushButton;
 class QTextBrowser;
+class QTimer;
 
 class SnipOverlay;
 class QuolPopupWindow;
@@ -95,4 +97,6 @@ private:
     SnipOverlay *m_snipOverlay = nullptr;
     QNetworkAccessManager *m_network = nullptr;
     QNetworkReply *m_reply = nullptr;
+    QTimer *m_loadingTimer = nullptr;
+    QElapsedTimer m_requestTimer;
 };
