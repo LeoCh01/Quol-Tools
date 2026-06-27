@@ -1,3 +1,10 @@
+TODO
+- chat: req timer, clear chat
+
+
+5.0:
+- c++ migration
+
 4.3:
 - chat: add snip screen prompt
 
