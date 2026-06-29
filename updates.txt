@@ -1,6 +1,5 @@
 TODO
-- chat: req timer, clear chat
-
+- keymap: del btn in popup
 
 5.0:
 - c++ migration
