@@ -2,7 +2,9 @@
 
 #include "ui/QuolPopupWindow.hpp"
 
-#include <QAudioOutput>
+#define MINIAUDIO_IMPLEMENTATION
+#include "miniaudio.h"
+
 #include <QDir>
 #include <QEvent>
 #include <QFileDialog>
@@ -13,13 +15,30 @@
 #include <QJsonArray>
 #include <QLabel>
 #include <QListWidget>
-#include <QMediaPlayer>
 #include <QPushButton>
 #include <QRandomGenerator>
 #include <QSize>
 #include <QSlider>
+#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
+
+static QString formatTime(qint64 ms) {
+    int totalSec = static_cast<int>(ms / 1000);
+    int min = totalSec / 60;
+    int sec = totalSec % 60;
+    return QStringLiteral("%1:%2").arg(min).arg(sec, 2, 10, QLatin1Char('0'));
+}
+
+qint64 MusicPlayer::framesToMs(quint64 frames, quint32 sampleRate) {
+    if (sampleRate == 0) return 0;
+    return static_cast<qint64>(frames) * 1000 / sampleRate;
+}
+
+quint64 MusicPlayer::msToFrames(qint64 ms, quint32 sampleRate) {
+    if (sampleRate == 0) return 0;
+    return static_cast<quint64>(ms) * sampleRate / 1000;
+}
 
 QWidget *MusicPlayer::createWidget(QWidget *parent) {
     auto *widget = new QWidget(parent);
@@ -67,7 +86,6 @@ QWidget *MusicPlayer::createWidget(QWidget *parent) {
     btnRow->addWidget(m_prevBtn);
     btnRow->addWidget(m_playPauseBtn);
     btnRow->addWidget(m_nextBtn);
-
     btnRow->addStretch();
 
     m_repeatBtn = new QPushButton(widget);
@@ -119,14 +137,10 @@ QWidget *MusicPlayer::createWidget(QWidget *parent) {
     connect(m_seekSlider, &QSlider::sliderPressed, this, [this]() {
         m_seekSliderPressed = true;
     });
-    connect(m_seekSlider, &QSlider::sliderMoved, this, [this](int pos) {
-        if (m_player)
-            m_player->setPosition(pos);
-    });
     connect(m_seekSlider, &QSlider::sliderReleased, this, [this]() {
         m_seekSliderPressed = false;
-        if (m_player)
-            m_player->setPosition(m_seekSlider->value());
+        if (m_sound)
+            ma_sound_seek_to_pcm_frame(m_sound, msToFrames(m_seekSlider->value(), m_sampleRate));
     });
     layout->addWidget(m_seekSlider);
 
@@ -149,8 +163,8 @@ QWidget *MusicPlayer::createWidget(QWidget *parent) {
     m_volumeSlider->setFixedWidth(80);
     m_volumeSlider->setToolTip(QStringLiteral("Volume"));
     connect(m_volumeSlider, &QSlider::valueChanged, this, [this](int value) {
-        if (m_audioOutput)
-            m_audioOutput->setVolume(value / 100.0);
+        if (m_engine)
+            ma_engine_set_volume(m_engine, value / 100.0f);
         m_cfg.set("_.volume", value);
         m_cfg.save();
     });
@@ -162,40 +176,25 @@ QWidget *MusicPlayer::createWidget(QWidget *parent) {
     return widget;
 }
 
-static QString formatTime(qint64 ms) {
-    int totalSec = static_cast<int>(ms / 1000);
-    int min = totalSec / 60;
-    int sec = totalSec % 60;
-    return QStringLiteral("%1:%2").arg(min).arg(sec, 2, 10, QLatin1Char('0'));
-}
-
 void MusicPlayer::initialize(const QString &pluginRootPath, const PluginConfig &pluginConfig, QuolServices *services) {
     Q_UNUSED(services)
     m_pluginRootPath = pluginRootPath;
     m_cfg = pluginConfig;
 
-    m_player = new QMediaPlayer(this);
-    m_audioOutput = new QAudioOutput(this);
-    m_audioOutput->setVolume(m_cfg.get("_.volume", 50).toInt() / 100.0);
-    m_player->setAudioOutput(m_audioOutput);
+    m_engine = new ma_engine();
+    ma_engine_config engineConfig = ma_engine_config_init();
+    if (ma_engine_init(&engineConfig, m_engine) != MA_SUCCESS) {
+        m_songLabel->setText(QStringLiteral("Failed to initialize audio engine"));
+        return;
+    }
 
-    connect(m_player, &QMediaPlayer::errorOccurred, this, &MusicPlayer::onMediaError);
-    connect(m_player, &QMediaPlayer::playbackStateChanged, this, &MusicPlayer::onPlaybackStateChanged);
-    connect(m_player, &QMediaPlayer::mediaStatusChanged, this, &MusicPlayer::onMediaStatusChanged);
-    connect(m_player, &QMediaPlayer::positionChanged, this, [this](qint64 pos) {
-        if (!m_seekSlider || m_seekSliderPressed)
-            return;
-        m_seekSlider->setValue(static_cast<int>(pos));
-        updateTimeLabel();
-    });
-    connect(m_player, &QMediaPlayer::durationChanged, this, [this](qint64 dur) {
-        if (!m_seekSlider)
-            return;
-        bool valid = dur > 0;
-        m_seekSlider->setRange(0, valid ? static_cast<int>(dur) : 0);
-        m_seekSlider->setEnabled(valid);
-        updateTimeLabel();
-    });
+    m_sampleRate = ma_engine_get_sample_rate(m_engine);
+    float vol = m_cfg.get("_.volume", 50).toInt() / 100.0f;
+    ma_engine_set_volume(m_engine, vol);
+
+    m_timer = new QTimer(this);
+    connect(m_timer, &QTimer::timeout, this, &MusicPlayer::onTick);
+    m_timer->start(200);
 
     scanDirectories();
 
@@ -212,8 +211,20 @@ void MusicPlayer::onUpdateConfig(const PluginConfig &pluginConfig) {
 }
 
 void MusicPlayer::shutdown() {
-    if (m_player)
-        m_player->stop();
+    if (m_timer)
+        m_timer->stop();
+
+    if (m_sound) {
+        ma_sound_stop(m_sound);
+        ma_sound_uninit(m_sound);
+        delete m_sound;
+        m_sound = nullptr;
+    }
+    if (m_engine) {
+        ma_engine_uninit(m_engine);
+        delete m_engine;
+        m_engine = nullptr;
+    }
 }
 
 MusicPlayer::~MusicPlayer() {
@@ -221,30 +232,64 @@ MusicPlayer::~MusicPlayer() {
 }
 
 void MusicPlayer::playFile(int index) {
-    if (index < 0 || index >= m_songList.size() || !m_player)
+    if (index < 0 || index >= m_songList.size() || !m_engine)
         return;
 
     m_currentIndex = index;
     m_cfg.set("_.last_index", index);
     m_cfg.save();
 
-    m_player->setSource(QUrl::fromLocalFile(m_songList.at(index)));
-    m_player->play();
+    if (m_sound) {
+        ma_sound_stop(m_sound);
+        ma_sound_uninit(m_sound);
+        delete m_sound;
+        m_sound = nullptr;
+    }
+
+    m_sound = new ma_sound();
+    QByteArray pathBytes = m_songList.at(index).toUtf8();
+    ma_result result = ma_sound_init_from_file(m_engine, pathBytes.constData(),
+        MA_SOUND_FLAG_NO_SPATIALIZATION | MA_SOUND_FLAG_NO_PITCH, nullptr, nullptr, m_sound);
+
+    if (result != MA_SUCCESS) {
+        delete m_sound;
+        m_sound = nullptr;
+        m_soundLengthFrames = 0;
+        if (m_songLabel)
+            m_songLabel->setText(QStringLiteral("Failed to load file"));
+        return;
+    }
+
+    ma_sound_get_length_in_pcm_frames(m_sound, &m_soundLengthFrames);
+    ma_sound_start(m_sound);
+
+    int durMs = static_cast<int>(framesToMs(m_soundLengthFrames, m_sampleRate));
+    m_seekSlider->setRange(0, durMs);
+    m_seekSlider->setEnabled(true);
+
+    setPlayPauseIcon(true);
+    updateSongLabel();
 }
 
 void MusicPlayer::playPause() {
-    if (m_songList.isEmpty() || !m_player) {
+    if (m_songList.isEmpty()) {
         if (m_songLabel)
             m_songLabel->setText(QStringLiteral("No songs found - add directories first"));
         return;
     }
 
-    if (m_player->playbackState() == QMediaPlayer::PlayingState)
-        m_player->pause();
-    else if (m_player->playbackState() == QMediaPlayer::StoppedState)
+    if (!m_sound) {
         playFile(m_currentIndex >= 0 ? m_currentIndex : 0);
-    else
-        m_player->play();
+        return;
+    }
+
+    if (ma_sound_is_playing(m_sound)) {
+        ma_sound_stop(m_sound);
+        setPlayPauseIcon(false);
+    } else {
+        ma_sound_start(m_sound);
+        setPlayPauseIcon(true);
+    }
 }
 
 void MusicPlayer::playNext() {
@@ -289,6 +334,49 @@ void MusicPlayer::playPrev() {
     playFile(prev);
 }
 
+void MusicPlayer::onTick() {
+    if (!m_sound || !m_engine)
+        return;
+
+    if (m_soundLengthFrames > 0) {
+        ma_uint64 pos = ma_sound_get_time_in_pcm_frames(m_sound);
+        if (pos >= m_soundLengthFrames) {
+            ma_sound_stop(m_sound);
+            ma_sound_uninit(m_sound);
+            delete m_sound;
+            m_sound = nullptr;
+            m_soundLengthFrames = 0;
+
+            if (m_repeat) {
+                playFile(m_currentIndex);
+            } else {
+                playNext();
+            }
+
+            if (!m_sound) {
+                m_seekSlider->setRange(0, 0);
+                m_seekSlider->setEnabled(false);
+                setPlayPauseIcon(false);
+                updateTimeLabel();
+            }
+            return;
+        }
+
+        if (!m_seekSliderPressed && m_seekSlider) {
+            int posMs = static_cast<int>(framesToMs(pos, m_sampleRate));
+            m_seekSlider->setValue(posMs);
+        }
+    }
+    updateTimeLabel();
+}
+
+void MusicPlayer::setPlayPauseIcon(bool playing) {
+    if (!m_playPauseBtn)
+        return;
+    QString iconName = playing ? QStringLiteral("pause.svg") : QStringLiteral("play.svg");
+    m_playPauseBtn->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/") + iconName));
+}
+
 bool MusicPlayer::eventFilter(QObject *obj, QEvent *event) {
     if (obj == m_songLabel && event->type() == QEvent::Resize)
         updateSongLabel();
@@ -302,55 +390,15 @@ void MusicPlayer::setToggleStyle(QPushButton *btn, bool active) {
         btn->setStyleSheet(QString());
 }
 
-void MusicPlayer::onMediaError(QMediaPlayer::Error error) {
-    if (!m_songLabel)
-        return;
-    switch (error) {
-    case QMediaPlayer::FormatError:
-        m_songLabel->setText(QStringLiteral("Audio format not supported"));
-        break;
-    case QMediaPlayer::ResourceError:
-        m_songLabel->setText(QStringLiteral("File not found or inaccessible"));
-        break;
-    case QMediaPlayer::AccessDeniedError:
-        m_songLabel->setText(QStringLiteral("Access denied"));
-        break;
-    default:
-        m_songLabel->setText(QStringLiteral("Playback error"));
-        break;
-    }
-}
-
-void MusicPlayer::onPlaybackStateChanged(QMediaPlayer::PlaybackState state) {
-    if (!m_playPauseBtn)
-        return;
-    switch (state) {
-    case QMediaPlayer::PlayingState:
-        m_playPauseBtn->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/pause.svg")));
-        break;
-    case QMediaPlayer::PausedState:
-    case QMediaPlayer::StoppedState:
-        m_playPauseBtn->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/play.svg")));
-        break;
-    }
-}
-
-void MusicPlayer::onMediaStatusChanged(QMediaPlayer::MediaStatus status) {
-    if (status == QMediaPlayer::LoadedMedia)
-        updateSongLabel();
-    if (status == QMediaPlayer::EndOfMedia && !m_songList.isEmpty())
-        playNext();
-}
-
 void MusicPlayer::updateTimeLabel() {
-    if (!m_timeLabel || !m_player)
-        return;
-    qint64 dur = m_player->duration();
-    if (dur <= 0) {
+    if (!m_timeLabel || !m_sound || m_soundLengthFrames <= 0) {
         m_timeLabel->setText(QStringLiteral("0:00 / 0:00"));
         return;
     }
-    m_timeLabel->setText(formatTime(m_player->position()) + QStringLiteral(" / ") + formatTime(dur));
+    ma_uint64 pos = ma_sound_get_time_in_pcm_frames(m_sound);
+    m_timeLabel->setText(formatTime(framesToMs(pos, m_sampleRate))
+                         + QStringLiteral(" / ")
+                         + formatTime(framesToMs(m_soundLengthFrames, m_sampleRate)));
 }
 
 void MusicPlayer::updateSongLabel() {
