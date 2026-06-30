@@ -36,4 +36,7 @@ A tool to manage other custom-windowed tools:
 - Stopwatch
 - ...
 
+**Music Player**  
+A tool to play music.
+
 ---

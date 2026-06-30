@@ -40,6 +40,7 @@ endif()
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network)
+find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Multimedia QUIET)
 
 # Plugin sources include headers via paths like plugins/example/Example.hpp.
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
@@ -62,3 +63,4 @@ add_subdirectory(plugins/macro)
 add_subdirectory(plugins/api)
 add_subdirectory(plugins/misc)
 add_subdirectory(plugins/cmd)
+add_subdirectory(plugins/musicPlayer)
