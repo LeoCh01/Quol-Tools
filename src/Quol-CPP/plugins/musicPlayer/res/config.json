@@ -1,9 +1,11 @@
 {
   "_": {
-    "default_geometry": [280, 140, 150, 0],
+    "default_geometry": [280, 140, 180, 0],
     "name": "Music Player",
     "version": 1,
-    "description": "Simple MP3 music player with directory management"
-  },
-  "directories": []
+    "description": "Simple MP3 music player with directory management",
+    "directories": [],
+    "last_index": -1,
+    "volume": 50
+  }
 }

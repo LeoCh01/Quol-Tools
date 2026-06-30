@@ -4,8 +4,10 @@
 
 #include <QAudioOutput>
 #include <QDir>
+#include <QEvent>
 #include <QFileDialog>
 #include <QFileInfo>
+#include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QJsonArray>
@@ -13,7 +15,9 @@
 #include <QListWidget>
 #include <QMediaPlayer>
 #include <QPushButton>
+#include <QRandomGenerator>
 #include <QSize>
+#include <QSlider>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -26,12 +30,15 @@ QWidget *MusicPlayer::createWidget(QWidget *parent) {
     m_songLabel = new QLabel(QStringLiteral("No song loaded"), widget);
     m_songLabel->setAlignment(Qt::AlignCenter);
     m_songLabel->setWordWrap(true);
+    m_songLabel->setMinimumWidth(0);
+    m_songLabel->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    m_songLabel->setFixedHeight(m_songLabel->fontMetrics().lineSpacing() * 2);
+    m_songLabel->installEventFilter(this);
     layout->addWidget(m_songLabel);
 
+    const int iconSize = 16;
     auto *btnRow = new QHBoxLayout();
     btnRow->setSpacing(2);
-
-    const int iconSize = 16;
 
     m_prevBtn = new QPushButton(widget);
     m_prevBtn->setObjectName(QStringLiteral("btn-prev"));
@@ -57,21 +64,109 @@ QWidget *MusicPlayer::createWidget(QWidget *parent) {
     m_nextBtn->setToolTip(QStringLiteral("Next"));
     connect(m_nextBtn, &QPushButton::clicked, this, &MusicPlayer::playNext);
 
-    btnRow->addStretch();
     btnRow->addWidget(m_prevBtn);
     btnRow->addWidget(m_playPauseBtn);
     btnRow->addWidget(m_nextBtn);
+
     btnRow->addStretch();
+
+    m_repeatBtn = new QPushButton(widget);
+    m_repeatBtn->setObjectName(QStringLiteral("btn-repeat"));
+    m_repeatBtn->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/repeat.svg")));
+    m_repeatBtn->setIconSize(QSize(iconSize, iconSize));
+    m_repeatBtn->setFixedSize(24, 24);
+    m_repeatBtn->setCheckable(true);
+    m_repeatBtn->setToolTip(QStringLiteral("Repeat"));
+    setToggleStyle(m_repeatBtn, false);
+    connect(m_repeatBtn, &QPushButton::toggled, this, [this](bool checked) {
+        m_repeat = checked;
+        setToggleStyle(m_repeatBtn, checked);
+    });
+
+    btnRow->addWidget(m_repeatBtn);
+
+    m_shuffleBtn = new QPushButton(widget);
+    m_shuffleBtn->setObjectName(QStringLiteral("btn-shuffle"));
+    m_shuffleBtn->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/shuffle.svg")));
+    m_shuffleBtn->setIconSize(QSize(iconSize, iconSize));
+    m_shuffleBtn->setFixedSize(24, 24);
+    m_shuffleBtn->setCheckable(true);
+    m_shuffleBtn->setToolTip(QStringLiteral("Shuffle"));
+    setToggleStyle(m_shuffleBtn, false);
+    connect(m_shuffleBtn, &QPushButton::toggled, this, [this](bool checked) {
+        m_shuffle = checked;
+        setToggleStyle(m_shuffleBtn, checked);
+    });
+
+    btnRow->addWidget(m_shuffleBtn);
+
+    m_manageBtn = new QPushButton(widget);
+    m_manageBtn->setObjectName(QStringLiteral("btn-manage"));
+    m_manageBtn->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/manage.svg")));
+    m_manageBtn->setIconSize(QSize(iconSize, iconSize));
+    m_manageBtn->setFixedSize(24, 24);
+    m_manageBtn->setToolTip(QStringLiteral("Manage Directories"));
+    connect(m_manageBtn, &QPushButton::clicked, this, &MusicPlayer::openManageDialog);
+    btnRow->addWidget(m_manageBtn);
+
     layout->addLayout(btnRow);
 
-    m_manageBtn = new QPushButton(QStringLiteral("Manage Directories"), widget);
-    m_manageBtn->setObjectName(QStringLiteral("btn-manage"));
-    connect(m_manageBtn, &QPushButton::clicked, this, &MusicPlayer::openManageDialog);
-    layout->addWidget(m_manageBtn);
+    m_seekSlider = new QSlider(Qt::Horizontal, widget);
+    m_seekSlider->setObjectName(QStringLiteral("seek-slider"));
+    m_seekSlider->setRange(0, 0);
+    m_seekSlider->setEnabled(false);
+    m_seekSlider->setToolTip(QStringLiteral("Seek"));
+    connect(m_seekSlider, &QSlider::sliderPressed, this, [this]() {
+        m_seekSliderPressed = true;
+    });
+    connect(m_seekSlider, &QSlider::sliderMoved, this, [this](int pos) {
+        if (m_player)
+            m_player->setPosition(pos);
+    });
+    connect(m_seekSlider, &QSlider::sliderReleased, this, [this]() {
+        m_seekSliderPressed = false;
+        if (m_player)
+            m_player->setPosition(m_seekSlider->value());
+    });
+    layout->addWidget(m_seekSlider);
+
+    auto *bottomRow = new QHBoxLayout();
+    bottomRow->setSpacing(4);
+
+    m_timeLabel = new QLabel(QStringLiteral("0:00 / 0:00"), widget);
+    m_timeLabel->setObjectName(QStringLiteral("time-label"));
+    bottomRow->addWidget(m_timeLabel);
+
+    bottomRow->addStretch();
+
+    auto *volLabel = new QLabel(widget);
+    volLabel->setPixmap(QIcon(m_pluginRootPath + QStringLiteral("/res/img/volume.svg")).pixmap(14, 14));
+    bottomRow->addWidget(volLabel);
+
+    m_volumeSlider = new QSlider(Qt::Horizontal, widget);
+    m_volumeSlider->setRange(0, 100);
+    m_volumeSlider->setValue(m_cfg.get("_.volume", 50).toInt());
+    m_volumeSlider->setFixedWidth(80);
+    m_volumeSlider->setToolTip(QStringLiteral("Volume"));
+    connect(m_volumeSlider, &QSlider::valueChanged, this, [this](int value) {
+        if (m_audioOutput)
+            m_audioOutput->setVolume(value / 100.0);
+        m_cfg.set("_.volume", value);
+        m_cfg.save();
+    });
+    bottomRow->addWidget(m_volumeSlider);
+    layout->addLayout(bottomRow);
 
     updateSongLabel();
 
     return widget;
+}
+
+static QString formatTime(qint64 ms) {
+    int totalSec = static_cast<int>(ms / 1000);
+    int min = totalSec / 60;
+    int sec = totalSec % 60;
+    return QStringLiteral("%1:%2").arg(min).arg(sec, 2, 10, QLatin1Char('0'));
 }
 
 void MusicPlayer::initialize(const QString &pluginRootPath, const PluginConfig &pluginConfig, QuolServices *services) {
@@ -81,16 +176,34 @@ void MusicPlayer::initialize(const QString &pluginRootPath, const PluginConfig &
 
     m_player = new QMediaPlayer(this);
     m_audioOutput = new QAudioOutput(this);
+    m_audioOutput->setVolume(m_cfg.get("_.volume", 50).toInt() / 100.0);
     m_player->setAudioOutput(m_audioOutput);
 
     connect(m_player, &QMediaPlayer::errorOccurred, this, &MusicPlayer::onMediaError);
     connect(m_player, &QMediaPlayer::playbackStateChanged, this, &MusicPlayer::onPlaybackStateChanged);
     connect(m_player, &QMediaPlayer::mediaStatusChanged, this, &MusicPlayer::onMediaStatusChanged);
+    connect(m_player, &QMediaPlayer::positionChanged, this, [this](qint64 pos) {
+        if (!m_seekSlider || m_seekSliderPressed)
+            return;
+        m_seekSlider->setValue(static_cast<int>(pos));
+        updateTimeLabel();
+    });
+    connect(m_player, &QMediaPlayer::durationChanged, this, [this](qint64 dur) {
+        if (!m_seekSlider)
+            return;
+        bool valid = dur > 0;
+        m_seekSlider->setRange(0, valid ? static_cast<int>(dur) : 0);
+        m_seekSlider->setEnabled(valid);
+        updateTimeLabel();
+    });
 
     scanDirectories();
 
-    if (!m_songList.isEmpty())
-        m_currentIndex = 0;
+    if (!m_songList.isEmpty()) {
+        m_currentIndex = m_cfg.get("_.last_index", 0).toInt();
+        if (m_currentIndex < 0 || m_currentIndex >= m_songList.size())
+            m_currentIndex = 0;
+    }
 }
 
 void MusicPlayer::onUpdateConfig(const PluginConfig &pluginConfig) {
@@ -99,18 +212,8 @@ void MusicPlayer::onUpdateConfig(const PluginConfig &pluginConfig) {
 }
 
 void MusicPlayer::shutdown() {
-    if (m_player) {
+    if (m_player)
         m_player->stop();
-        m_player = nullptr;
-    }
-    m_audioOutput = nullptr;
-    m_prevBtn = nullptr;
-    m_playPauseBtn = nullptr;
-    m_nextBtn = nullptr;
-    m_songLabel = nullptr;
-    m_manageBtn = nullptr;
-    m_songList.clear();
-    m_currentIndex = -1;
 }
 
 MusicPlayer::~MusicPlayer() {
@@ -122,46 +225,81 @@ void MusicPlayer::playFile(int index) {
         return;
 
     m_currentIndex = index;
+    m_cfg.set("_.last_index", index);
+    m_cfg.save();
+
     m_player->setSource(QUrl::fromLocalFile(m_songList.at(index)));
     m_player->play();
 }
 
 void MusicPlayer::playPause() {
-    if (m_songList.isEmpty()) {
-        m_songLabel->setText(QStringLiteral("No songs found - add directories first"));
+    if (m_songList.isEmpty() || !m_player) {
+        if (m_songLabel)
+            m_songLabel->setText(QStringLiteral("No songs found - add directories first"));
         return;
     }
-    if (!m_player)
-        return;
 
-    if (m_player->playbackState() == QMediaPlayer::PlayingState) {
+    if (m_player->playbackState() == QMediaPlayer::PlayingState)
         m_player->pause();
-    } else {
-        if (m_player->playbackState() == QMediaPlayer::StoppedState)
-            playFile(m_currentIndex >= 0 ? m_currentIndex : 0);
-        else
-            m_player->play();
-    }
+    else if (m_player->playbackState() == QMediaPlayer::StoppedState)
+        playFile(m_currentIndex >= 0 ? m_currentIndex : 0);
+    else
+        m_player->play();
 }
 
 void MusicPlayer::playNext() {
-    if (m_songList.isEmpty() || !m_player)
+    if (m_songList.isEmpty())
         return;
 
-    int next = m_currentIndex + 1;
-    if (next >= m_songList.size())
-        next = 0;
+    int next;
+    if (m_shuffle) {
+        do {
+            next = QRandomGenerator::global()->bounded(m_songList.size());
+        } while (next == m_currentIndex && m_songList.size() > 1);
+    } else {
+        next = m_currentIndex + 1;
+        if (next >= m_songList.size()) {
+            if (m_repeat)
+                next = 0;
+            else
+                return;
+        }
+    }
     playFile(next);
 }
 
 void MusicPlayer::playPrev() {
-    if (m_songList.isEmpty() || !m_player)
+    if (m_songList.isEmpty())
         return;
 
-    int prev = m_currentIndex - 1;
-    if (prev < 0)
-        prev = m_songList.size() - 1;
+    int prev;
+    if (m_shuffle) {
+        do {
+            prev = QRandomGenerator::global()->bounded(m_songList.size());
+        } while (prev == m_currentIndex && m_songList.size() > 1);
+    } else {
+        prev = m_currentIndex - 1;
+        if (prev < 0) {
+            if (m_repeat)
+                prev = m_songList.size() - 1;
+            else
+                return;
+        }
+    }
     playFile(prev);
+}
+
+bool MusicPlayer::eventFilter(QObject *obj, QEvent *event) {
+    if (obj == m_songLabel && event->type() == QEvent::Resize)
+        updateSongLabel();
+    return QObject::eventFilter(obj, event);
+}
+
+void MusicPlayer::setToggleStyle(QPushButton *btn, bool active) {
+    if (active)
+        btn->setStyleSheet(QStringLiteral("background-color: #2d7d2d;"));
+    else
+        btn->setStyleSheet(QString());
 }
 
 void MusicPlayer::onMediaError(QMediaPlayer::Error error) {
@@ -198,38 +336,85 @@ void MusicPlayer::onPlaybackStateChanged(QMediaPlayer::PlaybackState state) {
 }
 
 void MusicPlayer::onMediaStatusChanged(QMediaPlayer::MediaStatus status) {
-    if (status == QMediaPlayer::LoadedMedia && m_songLabel)
+    if (status == QMediaPlayer::LoadedMedia)
         updateSongLabel();
     if (status == QMediaPlayer::EndOfMedia && !m_songList.isEmpty())
         playNext();
+}
+
+void MusicPlayer::updateTimeLabel() {
+    if (!m_timeLabel || !m_player)
+        return;
+    qint64 dur = m_player->duration();
+    if (dur <= 0) {
+        m_timeLabel->setText(QStringLiteral("0:00 / 0:00"));
+        return;
+    }
+    m_timeLabel->setText(formatTime(m_player->position()) + QStringLiteral(" / ") + formatTime(dur));
 }
 
 void MusicPlayer::updateSongLabel() {
     if (!m_songLabel)
         return;
 
-    if (m_currentIndex >= 0 && m_currentIndex < m_songList.size()) {
-        const QFileInfo fi(m_songList.at(m_currentIndex));
-        m_songLabel->setText(fi.fileName());
-    } else {
+    if (m_currentIndex < 0 || m_currentIndex >= m_songList.size()) {
         m_songLabel->setText(QStringLiteral("No song loaded"));
+        return;
     }
+
+    setElidedText(QFileInfo(m_songList.at(m_currentIndex)).fileName());
+}
+
+void MusicPlayer::setElidedText(const QString &text) {
+    QFontMetrics fm(m_songLabel->font());
+    int lineH = fm.lineSpacing();
+    int maxH = lineH * 2;
+    int w = m_songLabel->width();
+
+    if (w <= 0) {
+        m_songLabel->setText(text);
+        return;
+    }
+
+    QRect r = fm.boundingRect(QRect(0, 0, w, maxH), Qt::AlignLeft | Qt::TextWordWrap, text);
+    if (r.height() <= maxH) {
+        m_songLabel->setText(text);
+        return;
+    }
+
+    int lo = 0, hi = text.length();
+    while (lo < hi) {
+        int mid = (lo + hi + 1) / 2;
+        QRect rr = fm.boundingRect(QRect(0, 0, w, maxH), Qt::AlignLeft | Qt::TextWordWrap,
+                                    text.left(mid) + QStringLiteral("..."));
+        if (rr.height() <= maxH)
+            lo = mid;
+        else
+            hi = mid - 1;
+    }
+    m_songLabel->setText(text.left(lo) + QStringLiteral("..."));
 }
 
 void MusicPlayer::scanDirectories() {
     m_songList.clear();
 
-    const QJsonArray dirs = m_cfg.get("directories").toArray();
+    QJsonArray dirs = m_cfg.get("_.directories").toArray();
+    if (dirs.isEmpty()) {
+        dirs = m_cfg.get("directories").toArray();
+        if (!dirs.isEmpty()) {
+            m_cfg.set("_.directories", dirs);
+            m_cfg.set("directories", QJsonValue());
+            m_cfg.save();
+        }
+    }
     for (const auto &val : dirs) {
         QDir dir(val.toString());
         if (!dir.exists())
             continue;
 
-        const QStringList filters = { QStringLiteral("*.mp3") };
-        const auto files = dir.entryList(filters, QDir::Files, QDir::Name);
-        for (const auto &file : files) {
+        const auto files = dir.entryList({ QStringLiteral("*.mp3") }, QDir::Files, QDir::Name);
+        for (const auto &file : files)
             m_songList.append(dir.absoluteFilePath(file));
-        }
     }
 }
 
@@ -242,10 +427,9 @@ void MusicPlayer::openManageDialog() {
     layout->setContentsMargins(0, 0, 0, 0);
 
     auto *listWidget = new QListWidget(content);
-    const QJsonArray dirs = m_cfg.get("directories").toArray();
-    for (const auto &val : dirs) {
+    const QJsonArray dirs = m_cfg.get("_.directories").toArray();
+    for (const auto &val : dirs)
         listWidget->addItem(val.toString());
-    }
 
     auto *addBtn = new QPushButton(QStringLiteral("Add Directory"), content);
     connect(addBtn, &QPushButton::clicked, this, [this, listWidget]() {
@@ -257,19 +441,16 @@ void MusicPlayer::openManageDialog() {
 
     auto *removeBtn = new QPushButton(QStringLiteral("Remove Selected"), content);
     connect(removeBtn, &QPushButton::clicked, this, [this, listWidget]() {
-        auto items = listWidget->selectedItems();
-        for (auto *item : items) {
+        for (auto *item : listWidget->selectedItems())
             delete listWidget->takeItem(listWidget->row(item));
-        }
     });
 
     auto *saveBtn = new QPushButton(QStringLiteral("Save"), content);
     connect(saveBtn, &QPushButton::clicked, this, [this, listWidget, popup]() {
         QJsonArray dirs;
-        for (int i = 0; i < listWidget->count(); ++i) {
+        for (int i = 0; i < listWidget->count(); ++i)
             dirs.append(listWidget->item(i)->text());
-        }
-        m_cfg.set("directories", dirs);
+        m_cfg.set("_.directories", dirs);
         m_cfg.save();
         scanDirectories();
         popup->close();

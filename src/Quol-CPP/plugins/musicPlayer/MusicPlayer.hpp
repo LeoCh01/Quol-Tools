@@ -9,6 +9,7 @@
 class QAudioOutput;
 class QLabel;
 class QPushButton;
+class QSlider;
 
 class MusicPlayer final : public QObject, public IQuolPlugin {
     Q_OBJECT
@@ -31,9 +32,14 @@ private:
     void openManageDialog();
     void scanDirectories();
     void updateSongLabel();
+    void updateTimeLabel();
+    void setElidedText(const QString &text);
+    bool eventFilter(QObject *obj, QEvent *event) override;
     void onMediaError(QMediaPlayer::Error error);
     void onPlaybackStateChanged(QMediaPlayer::PlaybackState state);
     void onMediaStatusChanged(QMediaPlayer::MediaStatus status);
+
+    static void setToggleStyle(QPushButton *btn, bool active);
 
     QString m_pluginRootPath;
     PluginConfig m_cfg;
@@ -41,12 +47,20 @@ private:
     QMediaPlayer *m_player = nullptr;
     QAudioOutput *m_audioOutput = nullptr;
 
+    QLabel *m_songLabel = nullptr;
     QPushButton *m_prevBtn = nullptr;
     QPushButton *m_playPauseBtn = nullptr;
     QPushButton *m_nextBtn = nullptr;
-    QLabel *m_songLabel = nullptr;
+    QPushButton *m_shuffleBtn = nullptr;
+    QPushButton *m_repeatBtn = nullptr;
+    QSlider *m_volumeSlider = nullptr;
+    QSlider *m_seekSlider = nullptr;
+    QLabel *m_timeLabel = nullptr;
     QPushButton *m_manageBtn = nullptr;
 
     QStringList m_songList;
     int m_currentIndex = -1;
+    bool m_shuffle = false;
+    bool m_repeat = false;
+    bool m_seekSliderPressed = false;
 };
