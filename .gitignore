@@ -3,6 +3,7 @@ __pycache__/
 .vscode/
 build/
 dist/
+downloads/
 
 CMakeUserPresets.json
 plugin-zip-config.json

@@ -1,13 +1,29 @@
+get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../../../" ABSOLUTE)
+set(DOWNLOADS_DIR "${PROJECT_ROOT}/downloads")
+set(MINIAUDIO_URL "https://raw.githubusercontent.com/mackron/miniaudio/master/miniaudio.h")
+set(MINIAUDIO_PATH "${DOWNLOADS_DIR}/miniaudio.h")
+
+file(MAKE_DIRECTORY ${DOWNLOADS_DIR})
+
+if(NOT EXISTS ${MINIAUDIO_PATH})
+    message(STATUS "Downloading miniaudio.h...")
+    file(DOWNLOAD ${MINIAUDIO_URL} ${MINIAUDIO_PATH} STATUS download_status)
+    list(GET download_status 0 status_code)
+    if(NOT status_code EQUAL 0)
+        message(FATAL_ERROR "Failed to download miniaudio.h (status ${download_status})")
+    endif()
+    message(STATUS "miniaudio.h downloaded successfully")
+endif()
+
 add_library(musicplayer_plugin MODULE
     MusicPlayer.cpp
     MusicPlayer.hpp
-    lib/miniaudio.h
     ${QUOL_HOST_SOURCE_DIR}/ui/QuolPopupWindow.cpp
     ${QUOL_HOST_SOURCE_DIR}/ui/TitleBar.cpp
 )
 
 target_include_directories(musicplayer_plugin PRIVATE
-    ${CMAKE_CURRENT_SOURCE_DIR}/lib
+    ${DOWNLOADS_DIR}
     ${QUOL_HOST_SOURCE_DIR}
     ${QUOL_HOST_ROOT}
 )
