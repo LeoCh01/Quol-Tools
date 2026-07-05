@@ -54,7 +54,6 @@ set_target_properties(quol_core PROPERTIES
 
 # Build plugins from this repo.
 add_subdirectory(plugins/example)
-add_subdirectory(plugins/chance)
 add_subdirectory(plugins/colorPicker)
 add_subdirectory(plugins/chat)
 add_subdirectory(plugins/draw)

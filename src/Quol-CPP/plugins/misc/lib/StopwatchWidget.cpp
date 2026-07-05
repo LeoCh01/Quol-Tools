@@ -17,17 +17,17 @@ StopwatchWidget::StopwatchWidget(const QString &pluginRootPath, QWidget *parent)
     outerLayout->setContentsMargins(0, 0, 0, 0);
     outerLayout->setSpacing(4);
 
-    QIcon playIcon(m_rootPath + QStringLiteral("/res/img/play.svg"));
-    QIcon pauseIcon(m_rootPath + QStringLiteral("/res/img/pause.svg"));
-    QIcon resetIcon(m_rootPath + QStringLiteral("/res/img/reset.svg"));
-    QIcon clockIcon(m_rootPath + QStringLiteral("/res/img/clock.svg"));
-    QIcon flagIcon(m_rootPath + QStringLiteral("/res/img/flag.svg"));
+    QIcon playIcon(m_rootPath + QStringLiteral("/res/stopwatch/img/play.svg"));
+    QIcon pauseIcon(m_rootPath + QStringLiteral("/res/stopwatch/img/pause.svg"));
+    QIcon resetIcon(m_rootPath + QStringLiteral("/res/stopwatch/img/reset.svg"));
+    QIcon clockIcon(m_rootPath + QStringLiteral("/res/stopwatch/img/clock.svg"));
+    QIcon flagIcon(m_rootPath + QStringLiteral("/res/stopwatch/img/flag.svg"));
 
     auto *container = new QWidget(this);
     container->setObjectName(QStringLiteral("swContainer"));
-    container->setStyleSheet(QStringLiteral(
-        "#swContainer { background: rgba(0, 0, 0, 60); border-radius: 15px; padding: 10px; }"
-    ));
+    container->setStyleSheet(
+        QStringLiteral("#swContainer { background: rgba(0, 0, 0, 60); border-radius: 15px; padding: 10px; }")
+    );
     auto *topRow = new QHBoxLayout(container);
     topRow->setContentsMargins(14, 10, 14, 10);
     topRow->setSpacing(8);
@@ -105,11 +105,8 @@ StopwatchWidget::StopwatchWidget(const QString &pluginRootPath, QWidget *parent)
 void StopwatchWidget::start(QuolServices *services) {
     m_services = services;
     if (m_services && m_hotkeyId.isEmpty()) {
-        m_hotkeyId = m_services->inputManager()->addHotkey(
-            QStringLiteral("space"),
-            [this]() { toggleRunning(); },
-            true
-        );
+        m_hotkeyId =
+            m_services->inputManager()->addHotkey(QStringLiteral("space"), [this]() { toggleRunning(); }, true);
     }
     show();
 }
@@ -133,7 +130,7 @@ void StopwatchWidget::resetStopwatch() {
     m_baseTime = 0;
     m_lastLapTime = 0;
     m_timeLabel->setText(QStringLiteral("00:00:00.00"));
-    m_playBtn->setIcon(QIcon(m_rootPath + QStringLiteral("/res/img/play.svg")));
+    m_playBtn->setIcon(QIcon(m_rootPath + QStringLiteral("/res/stopwatch/img/play.svg")));
     mLapList->clear();
     mLapList->setVisible(false);
     adjustSize();
@@ -144,21 +141,19 @@ void StopwatchWidget::toggleRunning() {
         m_elapsed.start();
         m_timer->start();
         m_running = true;
-        m_playBtn->setIcon(QIcon(m_rootPath + QStringLiteral("/res/img/pause.svg")));
+        m_playBtn->setIcon(QIcon(m_rootPath + QStringLiteral("/res/stopwatch/img/pause.svg")));
     } else if (m_lapMode) {
         qint64 now = m_baseTime + m_elapsed.elapsed();
         qint64 lapMs = now - m_lastLapTime;
         m_lastLapTime = now;
-        mLapList->insertItem(0, QStringLiteral("Lap %1  %2")
-                                 .arg(mLapList->count() + 1)
-                                 .arg(formatTime(lapMs)));
+        mLapList->insertItem(0, QStringLiteral("Lap %1  %2").arg(mLapList->count() + 1).arg(formatTime(lapMs)));
         mLapList->setVisible(true);
         adjustSize();
     } else {
         m_baseTime += m_elapsed.elapsed();
         m_timer->stop();
         m_running = false;
-        m_playBtn->setIcon(QIcon(m_rootPath + QStringLiteral("/res/img/play.svg")));
+        m_playBtn->setIcon(QIcon(m_rootPath + QStringLiteral("/res/stopwatch/img/play.svg")));
     }
 }
 
@@ -168,8 +163,10 @@ void StopwatchWidget::doReset() {
 
 void StopwatchWidget::toggleMode() {
     m_lapMode = m_modeBtn->isChecked();
-    m_modeBtn->setIcon(QIcon(m_rootPath + QStringLiteral("/res/img/") +
-                             (m_lapMode ? QStringLiteral("flag.svg") : QStringLiteral("clock.svg"))));
+    m_modeBtn->setIcon(QIcon(
+        m_rootPath + QStringLiteral("/res/stopwatch/img/")
+        + (m_lapMode ? QStringLiteral("flag.svg") : QStringLiteral("clock.svg"))
+    ));
     resetStopwatch();
 }
 

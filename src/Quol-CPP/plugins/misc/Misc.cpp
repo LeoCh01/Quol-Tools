@@ -1,6 +1,7 @@
 #include "plugins/misc/Misc.hpp"
 #include "plugins/misc/lib/ToolBase.hpp"
 #include "plugins/misc/lib/StopwatchWidget.hpp"
+#include "plugins/misc/lib/DiceWidget.hpp"
 
 #include <QPushButton>
 #include <QVBoxLayout>
@@ -46,6 +47,9 @@ void Misc::initialize(const QString &pluginRootPath, const PluginConfig &pluginC
             m_tools[0].btn->setChecked(false);
     });
     m_tools.append({sw, nullptr});
+
+    auto *dw = new DiceWidget(pluginRootPath);
+    m_tools.append({dw, nullptr});
 }
 
 void Misc::onUpdateConfig(const PluginConfig &pluginConfig) {

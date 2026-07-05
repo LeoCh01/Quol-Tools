@@ -12,9 +12,6 @@ A tool to make HTTP requests (mini Postman).
 **Color Picker**  
 A tool to grab colors from the screen (RGB/HEX).
 
-**Chance**  
-A tool to roll a die; flip a coin.
-
 **Chat**  
 A tool to chat with an AI assistant on screen (Gemini, Groq, Ollama).
 
@@ -34,7 +31,7 @@ A tool to record and play back mouse and keyboard actions.
 A tool to manage other custom-windowed tools:
 
 - Stopwatch
-- ...
+- Dice Roll
 
 **Music Player**  
 A tool to play music.
