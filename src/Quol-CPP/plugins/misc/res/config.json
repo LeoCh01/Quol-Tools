@@ -2,7 +2,7 @@
   "_": {
     "default_geometry": [200, 310, 150, 0],
     "name": "Misc",
-    "version": 1,
+    "version": 2,
     "description": "Miscellaneous tools (stopwatch, more to come)"
   }
 }
