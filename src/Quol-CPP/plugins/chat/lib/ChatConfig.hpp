@@ -4,21 +4,23 @@
 
 #include <QJsonObject>
 #include <QMap>
-#include <QStringList>
 #include <QVector>
 
 namespace chat::config {
 
 struct ParsedConfig {
+    QVector<chat::providers::ProviderConfig> endpoints;
+    int endpointIndex = 0;
     bool includeImage = true;
     bool historyEnabled = true;
     int maxHistory = 10;
-    QString snipPrompt = "What is this image?";
+    QString snipPrompt = QStringLiteral("What is this image?");
+
+    bool ollamaEnabled = false;
+    QString ollamaModel;
+    bool hideOutputOnToggle = false;
 
     QMap<QString, QString> commands;
-
-    QVector<chat::providers::EndpointConfig> endpoints;
-    int activeEndpointIndex = 0;
 };
 
 ParsedConfig parse(const QJsonObject &pluginConfig);

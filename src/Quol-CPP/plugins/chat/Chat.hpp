@@ -4,6 +4,7 @@
 #include "plugins/chat/lib/providers/ProviderTypes.hpp"
 
 #include <QElapsedTimer>
+#include <QEvent>
 #include <QMap>
 #include <QNetworkReply>
 #include <QObject>
@@ -11,12 +12,12 @@
 #include <QVector>
 
 class QLineEdit;
-class QListWidget;
 class QNetworkAccessManager;
 class QPixmap;
 class QPushButton;
 class QTextBrowser;
 class QTimer;
+class QVBoxLayout;
 
 class SnipOverlay;
 class QuolPopupWindow;
@@ -33,14 +34,14 @@ public:
     void onUpdateConfig(const PluginConfig &pluginConfig) override;
     void shutdown() override;
 
+    bool eventFilter(QObject *obj, QEvent *event) override;
+
 private:
     using HistoryItem = chat::providers::HistoryItem;
-    using EndpointConfig = chat::providers::EndpointConfig;
 
     void applyConfig();
     void applyButtonIcons();
-    void showEndpointSelector();
-    void activateEndpoint(int index);
+    void showProviderSelector();
     void clearMessage();
     void updateIncludeImageUi();
     void submitPrompt(bool useExistingSnipImage = false);
@@ -58,7 +59,7 @@ private:
     QString capturePrimaryScreenBase64Png() const;
     static QString pixmapToBase64Png(const QPixmap &pixmap);
 
-    void dispatchProviderRequest(const QString &prompt, const QString &imageBase64);
+    void dispatchProviderRequest(int endpointIndex, const QString &prompt, const QString &imageBase64);
     void sendJsonRequest(const chat::providers::ProviderRequest &request);
     void onRequestFinished();
     void onRequestError(QNetworkReply::NetworkError code);
@@ -69,23 +70,35 @@ private:
     void setControlsEnabled(bool enabled);
     void updatePromptPlaceholder();
 
-    void writeEndpointsToConfig();
+    void writeProviderConfig();
+    void rebuildProviderRows();
+
+    // hardcoded provider type for each endpoint index
+    static QString providerTypeForIndex(int index);
 
     QString m_pluginRootPath;
     PluginConfig m_cfg;
     QuolServices *m_services = nullptr;
 
+    QVector<chat::providers::ProviderConfig> m_endpoints;
+    int m_endpointIndex = 0;
+    bool m_ollamaEnabled = false;
+    QString m_ollamaModel;
+    bool m_hideOutputOnToggle = false;
+    bool m_outputWindowHiddenByToggle = false;
     bool m_includeImage = true;
     bool m_historyEnabled = true;
     int m_maxHistory = 10;
-    QString m_snipPrompt = "What is this image?";
+    QString m_snipPrompt = QStringLiteral("What is this image?");
 
-    QVector<EndpointConfig> m_endpoints;
-    int m_activeEndpointIndex = 0;
     QMap<QString, QString> m_commands;
 
     QVector<HistoryItem> m_history;
+    QString m_pendingProvider;
     QString m_pendingSnipImageBase64;
+
+    QuolPopupWindow *m_providerPopup = nullptr;
+    QVBoxLayout *m_providerScrollLayout = nullptr;
 
     QWidget *m_widget = nullptr;
     QPushButton *m_providerButton = nullptr;

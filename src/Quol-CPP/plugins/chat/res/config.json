@@ -5,27 +5,35 @@
     "version": 3,
     "description": "Chat actions row",
     "include_image": true,
-    "active_endpoint": "groq"
+    "endpoint_index": 0,
+    "endpoints": [
+      {
+        "model": "meta-llama/llama-4-scout-17b-16e-instruct",
+        "apikey": ""
+      },
+      {
+        "model": "gemini-2.5-flash",
+        "apikey": ""
+      },
+      {
+        "model": "gpt-4o",
+        "apikey": ""
+      },
+      {
+        "model": "deepseek-chat",
+        "apikey": ""
+      }
+    ]
   },
-  "endpoints": {
-    "groq": {
-      "model": "meta-llama/llama-4-scout-17b-16e-instruct",
-      "apikey": ""
-    },
-    "gemini": {
-      "model": "gemini-2.5-flash",
-      "apikey": ""
-    },
-    "openrouter": {
-      "model": "openai/gpt-4o",
-      "apikey": ""
-    }
+  "ollama": {
+    "enabled": false,
+    "model": "gemma3"
   },
-  "endpoint_order": ["groq", "gemini", "openrouter"],
   "config": {
     "history": true,
     "max_history": 10,
-    "snip": "What is this image?"
+    "snip": "What is this image?",
+    "hide_output_on_toggle": false
   },
   "commands": {
     "/t": "translate any {0} text on screen to {1:english}",

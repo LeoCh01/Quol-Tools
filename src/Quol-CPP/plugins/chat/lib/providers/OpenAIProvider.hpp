@@ -2,7 +2,7 @@
 
 #include "plugins/chat/lib/providers/ProviderTypes.hpp"
 
-namespace chat::providers::openrouter {
+namespace chat::providers::openai {
 
 ProviderRequest buildRequest(
     const ProviderConfig &config,
@@ -14,4 +14,4 @@ ProviderRequest buildRequest(
 
 QString parseResponse(const QJsonObject &response);
 
-}  // namespace chat::providers::openrouter
+}  // namespace chat::providers::openai
