@@ -2,7 +2,9 @@
 #include "plugins/misc/lib/ToolBase.hpp"
 #include "plugins/misc/lib/StopwatchWidget.hpp"
 #include "plugins/misc/lib/DiceWidget.hpp"
+#include "plugins/misc/lib/ShaderWidget.hpp"
 
+#include <QHBoxLayout>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -25,11 +27,27 @@ QWidget *Misc::createWidget(QWidget *parent) {
         entry.btn = new QPushButton(entry.tool->label(), m_widget);
         entry.btn->setObjectName(QStringLiteral("btn-toggle"));
         entry.btn->setCheckable(true);
-        layout->addWidget(entry.btn);
 
         connect(entry.btn, &QPushButton::clicked, this, [this, i]() {
             toggleTool(i);
         });
+
+        if (auto *shader = dynamic_cast<ShaderWidget *>(entry.tool)) {
+            auto *row = new QHBoxLayout();
+            row->setContentsMargins(0, 0, 0, 0);
+            row->setSpacing(4);
+
+            auto *settingsBtn = new QPushButton(QStringLiteral("..."), m_widget);
+            settingsBtn->setFixedSize(24, 24);
+            settingsBtn->setObjectName(QStringLiteral("btn-settings"));
+            connect(settingsBtn, &QPushButton::clicked, shader, &ShaderWidget::openSettings);
+
+            row->addWidget(entry.btn, 1);
+            row->addWidget(settingsBtn);
+            layout->addLayout(row);
+        } else {
+            layout->addWidget(entry.btn);
+        }
     }
 
     layout->addStretch();
@@ -50,6 +68,17 @@ void Misc::initialize(const QString &pluginRootPath, const PluginConfig &pluginC
 
     auto *dw = new DiceWidget(pluginRootPath);
     m_tools.append({dw, nullptr});
+
+    auto *shader = new ShaderWidget(pluginRootPath);
+    connect(shader, &ShaderWidget::closed, this, [this, shader]() {
+        for (int i = 0; i < m_tools.size(); ++i) {
+            if (m_tools[i].tool == shader && m_tools[i].btn) {
+                m_tools[i].btn->setChecked(false);
+                break;
+            }
+        }
+    });
+    m_tools.append({shader, nullptr});
 }
 
 void Misc::onUpdateConfig(const PluginConfig &pluginConfig) {

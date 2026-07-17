@@ -25,4 +25,10 @@ struct ProviderRequest {
     QString bearerToken;
 };
 
+struct EndpointConfig {
+    QString name;
+    QString model;
+    QString apiKey;
+};
+
 }  // namespace chat::providers

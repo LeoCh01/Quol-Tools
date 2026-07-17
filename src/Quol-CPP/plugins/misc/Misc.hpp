@@ -6,6 +6,7 @@
 #include <QString>
 #include <QVector>
 
+class QHBoxLayout;
 class QPushButton;
 class ToolBase;
 

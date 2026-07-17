@@ -2,9 +2,7 @@
 
 #include "plugins/chat/lib/ChatConfig.hpp"
 #include "plugins/chat/lib/SnipOverlay.hpp"
-#include "plugins/chat/lib/providers/GeminiProvider.hpp"
-#include "plugins/chat/lib/providers/GroqProvider.hpp"
-#include "plugins/chat/lib/providers/OllamaProvider.hpp"
+#include "plugins/chat/lib/providers/OpenRouterProvider.hpp"
 #include "ui/QuolPopupWindow.hpp"
 
 #include <QBuffer>
@@ -14,19 +12,23 @@
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QIcon>
-#include <QImage>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QLabel>
 #include <QLineEdit>
+#include <QListWidget>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
 #include <QPushButton>
 #include <QRegularExpression>
 #include <QScreen>
+#include <QScrollArea>
 #include <QScrollBar>
 #include <QTextBrowser>
 #include <QTextDocument>
 #include <QTimer>
+#include <QVBoxLayout>
 #include <QUrl>
 #include <QWidget>
 
@@ -70,7 +72,7 @@ QWidget *Chat::createWidget(QWidget *parent) {
     auto *layout = new QHBoxLayout(m_widget);
     layout->setContentsMargins(0, 0, 0, 0);
 
-    m_cycleButton = new QPushButton(m_widget);
+    m_providerButton = new QPushButton(m_widget);
     m_clearButton = new QPushButton(m_widget);
     m_promptEdit = new QLineEdit(m_widget);
     m_includeImageButton = new QPushButton(m_widget);
@@ -79,23 +81,23 @@ QWidget *Chat::createWidget(QWidget *parent) {
     m_includeImageButton->setCheckable(true);
     const QSize iconSize(18, 18);
 
-    m_cycleButton->setIconSize(iconSize);
+    m_providerButton->setIconSize(iconSize);
     m_clearButton->setIconSize(iconSize);
     m_includeImageButton->setIconSize(iconSize);
     m_snipButton->setIconSize(iconSize);
 
-    m_cycleButton->setToolTip(QStringLiteral("Cycle provider"));
+    m_providerButton->setToolTip(QStringLiteral("Select provider / model"));
     m_clearButton->setToolTip(QStringLiteral("Clear message"));
     m_includeImageButton->setToolTip(QStringLiteral("Include screenshot"));
     m_snipButton->setToolTip(QStringLiteral("Snip mode"));
 
-    layout->addWidget(m_cycleButton);
+    layout->addWidget(m_providerButton);
     layout->addWidget(m_clearButton);
     layout->addWidget(m_promptEdit, 1);
     layout->addWidget(m_includeImageButton);
     layout->addWidget(m_snipButton);
 
-    QObject::connect(m_cycleButton, &QPushButton::clicked, this, &Chat::cycleProvider);
+    QObject::connect(m_providerButton, &QPushButton::clicked, this, &Chat::showEndpointSelector);
     QObject::connect(m_clearButton, &QPushButton::clicked, this, &Chat::clearMessage);
     QObject::connect(m_includeImageButton, &QPushButton::clicked, this, [this]() {
         m_includeImage = m_includeImageButton->isChecked();
@@ -148,7 +150,7 @@ void Chat::shutdown() {
     m_outputBrowser = nullptr;
     m_services = nullptr;
 
-    m_cycleButton = nullptr;
+    m_providerButton = nullptr;
     m_clearButton = nullptr;
     m_promptEdit = nullptr;
     m_includeImageButton = nullptr;
@@ -159,16 +161,14 @@ void Chat::shutdown() {
 void Chat::applyConfig() {
     const auto parsed = chat::config::parse(m_cfg.root());
 
-    m_providers = parsed.providers;
-    m_providerIndex = parsed.providerIndex;
     m_includeImage = parsed.includeImage;
     m_historyEnabled = parsed.historyEnabled;
     m_maxHistory = parsed.maxHistory;
     m_snipPrompt = parsed.snipPrompt;
 
     m_commands = parsed.commands;
-    m_models = parsed.models;
-    m_apiKeys = parsed.apiKeys;
+    m_endpoints = parsed.endpoints;
+    m_activeEndpointIndex = parsed.activeEndpointIndex;
 
     applyButtonIcons();
     updatePromptPlaceholder();
@@ -179,9 +179,8 @@ void Chat::applyButtonIcons() {
     if (m_pluginRootPath.isEmpty())
         return;
 
-    // check issue later
-    if (m_cycleButton)
-        m_cycleButton->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/cycle.svg")));
+    if (m_providerButton)
+        m_providerButton->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/cycle.svg")));
     if (m_clearButton)
         m_clearButton->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/clear.svg")));
     if (m_includeImageButton)
@@ -190,14 +189,179 @@ void Chat::applyButtonIcons() {
         m_snipButton->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/snip.svg")));
 }
 
-void Chat::cycleProvider() {
-    if (m_providers.isEmpty())
-        return;
-    m_providerIndex = (m_providerIndex + 1) % m_providers.size();
+void Chat::writeEndpointsToConfig() {
+    QJsonObject endpointsObj;
+    QJsonArray order;
+    for (const auto &ep : m_endpoints) {
+        order.append(ep.name);
+        QJsonObject eo;
+        eo.insert(QStringLiteral("model"), ep.model);
+        eo.insert(QStringLiteral("apikey"), ep.apiKey);
+        endpointsObj.insert(ep.name, eo);
+    }
 
-    m_cfg.set(QStringLiteral("_.provider_index"), m_providerIndex);
+    m_cfg.set(QStringLiteral("endpoints"), endpointsObj);
+    m_cfg.set(QStringLiteral("endpoint_order"), order);
+    m_cfg.set(QStringLiteral("_.active_endpoint"),
+              m_endpoints.isEmpty() ? QString() : m_endpoints[m_activeEndpointIndex].name);
     m_cfg.save();
+}
 
+void Chat::showEndpointSelector() {
+    if (m_endpoints.isEmpty())
+        return;
+
+    auto *popup = new QuolPopupWindow(QStringLiteral("Select Provider / Model"), m_widget);
+
+    auto *outerWidget = new QWidget();
+    auto *outerLayout = new QVBoxLayout(outerWidget);
+    outerLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto *scrollArea = new QScrollArea();
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+
+    auto *scrollContent = new QWidget();
+    auto *scrollLayout = new QVBoxLayout(scrollContent);
+    scrollLayout->setContentsMargins(8, 8, 8, 8);
+    scrollLayout->setSpacing(8);
+
+    QVector<QWidget *> rows;
+
+    for (int i = 0; i < m_endpoints.size(); ++i) {
+        auto &ep = m_endpoints[i];
+
+        auto *row = new QFrame();
+        row->setFrameShape(QFrame::StyledPanel);
+        row->setStyleSheet(QStringLiteral(
+            "QFrame { background:#2d2d2d; border:1px solid #444; border-radius:4px; padding:8px; }"
+            "QFrame:hover { border-color:#4CAF50; }"
+        ));
+
+        auto *rowLayout = new QVBoxLayout(row);
+        rowLayout->setContentsMargins(8, 8, 8, 8);
+        rowLayout->setSpacing(6);
+
+        auto *headerLayout = new QHBoxLayout();
+
+        auto *nameLabel = new QLabel(ep.name);
+        nameLabel->setStyleSheet(QStringLiteral("font-weight:bold; color:#fff; font-size:13px; border:none; background:transparent;"));
+        headerLayout->addWidget(nameLabel);
+
+        headerLayout->addStretch();
+
+        auto *activateBtn = new QPushButton(i == m_activeEndpointIndex ? QStringLiteral("ACTIVE") : QStringLiteral("Activate"));
+        activateBtn->setFixedHeight(26);
+        if (i == m_activeEndpointIndex) {
+            activateBtn->setStyleSheet(QStringLiteral(
+                "QPushButton { background:#4CAF50; color:white; border:none; border-radius:3px; padding:2px 12px; font-weight:bold; }"
+            ));
+            activateBtn->setEnabled(false);
+        } else {
+            activateBtn->setStyleSheet(QStringLiteral(
+                "QPushButton { background:#555; color:#ccc; border:none; border-radius:3px; padding:2px 12px; }"
+                "QPushButton:hover { background:#666; color:white; }"
+            ));
+        }
+        headerLayout->addWidget(activateBtn);
+
+        auto *removeBtn = new QPushButton(QStringLiteral("X"));
+        removeBtn->setFixedSize(26, 26);
+        removeBtn->setToolTip(QStringLiteral("Remove this endpoint"));
+        removeBtn->setStyleSheet(QStringLiteral(
+            "QPushButton { background:#c0392b; color:white; border:none; border-radius:3px; font-weight:bold; }"
+            "QPushButton:hover { background:#e74c3c; }"
+        ));
+        headerLayout->addWidget(removeBtn);
+
+        rowLayout->addLayout(headerLayout);
+
+        auto *modelEdit = new QLineEdit(ep.model);
+        modelEdit->setPlaceholderText(QStringLiteral("Model (e.g. openai/gpt-4o)"));
+        modelEdit->setStyleSheet(QStringLiteral(
+            "QLineEdit { background:#3a3a3a; color:white; border:1px solid #555; border-radius:3px; padding:4px 6px; }"
+            "QLineEdit:focus { border-color:#4CAF50; }"
+        ));
+        rowLayout->addWidget(modelEdit);
+
+        auto *keyEdit = new QLineEdit(ep.apiKey);
+        keyEdit->setPlaceholderText(QStringLiteral("OpenRouter API key"));
+        keyEdit->setEchoMode(QLineEdit::Password);
+        keyEdit->setStyleSheet(QStringLiteral(
+            "QLineEdit { background:#3a3a3a; color:white; border:1px solid #555; border-radius:3px; padding:4px 6px; }"
+            "QLineEdit:focus { border-color:#4CAF50; }"
+        ));
+        rowLayout->addWidget(keyEdit);
+
+        scrollLayout->addWidget(row);
+        rows.append(row);
+
+        int idx = i;
+        QObject::connect(activateBtn, &QPushButton::clicked, popup, [this, idx, popup]() {
+            activateEndpoint(idx);
+            writeEndpointsToConfig();
+            popup->close();
+        });
+
+        QObject::connect(removeBtn, &QPushButton::clicked, popup, [this, idx, popup]() {
+            if (m_endpoints.size() <= 1)
+                return;
+            m_endpoints.removeAt(idx);
+            if (m_activeEndpointIndex >= m_endpoints.size())
+                m_activeEndpointIndex = m_endpoints.size() - 1;
+            writeEndpointsToConfig();
+            updatePromptPlaceholder();
+            popup->close();
+            showEndpointSelector();
+        });
+
+        QObject::connect(modelEdit, &QLineEdit::textChanged, popup, [this, i, &ep, modelEdit]() {
+            ep.model = modelEdit->text().trimmed();
+        });
+        QObject::connect(keyEdit, &QLineEdit::textChanged, popup, [this, i, &ep, keyEdit]() {
+            ep.apiKey = keyEdit->text();
+        });
+    }
+
+    scrollLayout->addStretch();
+    scrollArea->setWidget(scrollContent);
+    outerLayout->addWidget(scrollArea);
+
+    auto *btnLayout = new QHBoxLayout();
+    auto *addBtn = new QPushButton(QStringLiteral("+ Add endpoint"));
+    addBtn->setStyleSheet(QStringLiteral(
+        "QPushButton { background:#2d7d46; color:white; border:none; border-radius:3px; padding:6px 16px; font-weight:bold; }"
+        "QPushButton:hover { background:#3a9d56; }"
+    ));
+    QObject::connect(addBtn, &QPushButton::clicked, popup, [this, popup]() {
+        int n = 1;
+        while (true) {
+            QString name = QStringLiteral("endpoint-%1").arg(n);
+            bool exists = false;
+            for (const auto &ep : m_endpoints) {
+                if (ep.name == name) { exists = true; break; }
+            }
+            if (!exists) break;
+            ++n;
+        }
+        m_endpoints.append({QStringLiteral("endpoint-%1").arg(n), QString(), QString()});
+        writeEndpointsToConfig();
+        popup->close();
+        showEndpointSelector();
+    });
+    btnLayout->addWidget(addBtn);
+    btnLayout->addStretch();
+    outerLayout->addLayout(btnLayout);
+
+    popup->addContent(outerWidget);
+    popup->resize(420, 400);
+    popup->show();
+}
+
+void Chat::activateEndpoint(int index) {
+    if (index < 0 || index >= m_endpoints.size())
+        return;
+    m_activeEndpointIndex = index;
     updatePromptPlaceholder();
 }
 
@@ -209,7 +373,6 @@ void Chat::clearMessage() {
 
     if (m_outputWindow) {
         m_outputWindow->close();
-        // m_outputWindow is nulled by the destroyed signal connection
     }
 }
 
@@ -228,7 +391,7 @@ void Chat::updateIncludeImageUi() {
 }
 
 void Chat::submitPrompt(bool useExistingSnipImage) {
-    if (!m_promptEdit || m_providers.isEmpty())
+    if (!m_promptEdit || m_endpoints.isEmpty())
         return;
 
     QString prompt = m_promptEdit->text().trimmed();
@@ -236,7 +399,6 @@ void Chat::submitPrompt(bool useExistingSnipImage) {
         return;
 
     prompt = applyCommandTemplate(prompt);
-    const QString provider = m_providers.value(m_providerIndex, QStringLiteral("groq"));
 
     QString imageBase64;
     if (m_includeImage) {
@@ -248,9 +410,7 @@ void Chat::submitPrompt(bool useExistingSnipImage) {
     }
 
     addHistory(QStringLiteral("user"), prompt, imageBase64);
-    appendLog(provider, true, prompt);
-
-    m_pendingProvider = provider;
+    appendLog(m_endpoints[m_activeEndpointIndex].name, true, prompt);
 
     setControlsEnabled(false);
     m_requestTimer.start();
@@ -270,7 +430,7 @@ void Chat::submitPrompt(bool useExistingSnipImage) {
     m_loadingTimer->start();
     setOutputText(buildConversationHtml(QStringLiteral("Loading... (0.0 s)")));
 
-    dispatchProviderRequest(provider, prompt, imageBase64);
+    dispatchProviderRequest(prompt, imageBase64);
 
     m_promptEdit->clear();
 }
@@ -439,17 +599,11 @@ QString Chat::pixmapToBase64Png(const QPixmap &pixmap) {
     return QString::fromLatin1(bytes.toBase64());
 }
 
-void Chat::dispatchProviderRequest(const QString &provider, const QString &prompt, const QString &imageBase64) {
-    chat::providers::ProviderConfig config{m_models.value(provider), m_apiKeys.value(provider)};
-    chat::providers::ProviderRequest request;
-
-    if (provider == "gemini") {
-        request = chat::providers::gemini::buildRequest(config, m_history, prompt, imageBase64, m_historyEnabled);
-    } else if (provider == "groq") {
-        request = chat::providers::groq::buildRequest(config, m_history, prompt, imageBase64, m_historyEnabled);
-    } else {
-        request = chat::providers::ollama::buildRequest(config, m_history, prompt, imageBase64, m_historyEnabled);
-    }
+void Chat::dispatchProviderRequest(const QString &prompt, const QString &imageBase64) {
+    const auto &ep = m_endpoints[m_activeEndpointIndex];
+    chat::providers::ProviderConfig config{ep.model, ep.apiKey};
+    chat::providers::ProviderRequest request =
+        chat::providers::openrouter::buildRequest(config, m_history, prompt, imageBase64, m_historyEnabled);
 
     sendJsonRequest(request);
 }
@@ -465,11 +619,16 @@ void Chat::sendJsonRequest(const chat::providers::ProviderRequest &request) {
 
     QNetworkRequest req(request.url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+
+    // OpenRouter expects API key in Authorization header
     if (!request.bearerToken.trimmed().isEmpty()) {
         req.setRawHeader("Authorization", QByteArray("Bearer ") + request.bearerToken.toUtf8());
     }
 
-    m_pendingProvider = request.providerName;
+    // OpenRouter optional headers
+    req.setRawHeader("HTTP-Referer", QByteArray("https://quol.app"));
+    req.setRawHeader("X-Title", QByteArray("Quol Chat"));
+
     m_reply = m_network->post(req, QJsonDocument(request.payload).toJson(QJsonDocument::Compact));
     QObject::connect(m_reply, &QNetworkReply::finished, this, &Chat::onRequestFinished);
     QObject::connect(m_reply, &QNetworkReply::errorOccurred, this, &Chat::onRequestError);
@@ -490,12 +649,8 @@ void Chat::onRequestFinished() {
             if (answer.isEmpty())
                 answer = QStringLiteral("Unknown provider error");
             answer = QStringLiteral("Error: ") + answer;
-        } else if (m_pendingProvider == QStringLiteral("gemini")) {
-            answer = chat::providers::gemini::parseResponse(obj);
-        } else if (m_pendingProvider == QStringLiteral("groq")) {
-            answer = chat::providers::groq::parseResponse(obj);
         } else {
-            answer = chat::providers::ollama::parseResponse(obj);
+            answer = chat::providers::openrouter::parseResponse(obj);
         }
     } else {
         answer = QString::fromUtf8(raw);
@@ -507,8 +662,9 @@ void Chat::onRequestFinished() {
     if (answer.trimmed().isEmpty())
         answer = QStringLiteral("(no response)");
 
+    const QString epName = m_endpoints.isEmpty() ? QStringLiteral("openrouter") : m_endpoints[m_activeEndpointIndex].name;
     addHistory(QStringLiteral("model"), answer);
-    appendLog(m_pendingProvider, false, answer);
+    appendLog(epName, false, answer);
     setOutputText(buildConversationHtml());
     setControlsEnabled(true);
 
@@ -566,8 +722,8 @@ void Chat::appendLog(const QString &provider, bool isUser, const QString &text) 
 void Chat::setControlsEnabled(bool enabled) {
     if (m_promptEdit)
         m_promptEdit->setEnabled(enabled);
-    if (m_cycleButton)
-        m_cycleButton->setEnabled(enabled);
+    if (m_providerButton)
+        m_providerButton->setEnabled(enabled);
     if (m_clearButton)
         m_clearButton->setEnabled(enabled);
     if (m_includeImageButton)
@@ -580,6 +736,14 @@ void Chat::updatePromptPlaceholder() {
     if (!m_promptEdit)
         return;
 
-    const QString provider = m_providers.value(m_providerIndex, QStringLiteral("groq"));
-    m_promptEdit->setPlaceholderText(QStringLiteral("Prompt for %1...").arg(provider));
+    if (m_endpoints.isEmpty()) {
+        m_promptEdit->setPlaceholderText(QStringLiteral("Prompt..."));
+        return;
+    }
+
+    const auto &ep = m_endpoints[m_activeEndpointIndex];
+    const QString model = ep.model.isEmpty() ? QStringLiteral("?") : ep.model;
+    m_promptEdit->setPlaceholderText(
+        QStringLiteral("Prompt for %1 (%2)...").arg(ep.name, model)
+    );
 }

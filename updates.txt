@@ -1,5 +1,6 @@
 TODO
 - keymap: del btn in popup
+chat: use one api to handle multi providers
 
 5.0:
 - musicPlayer plugin

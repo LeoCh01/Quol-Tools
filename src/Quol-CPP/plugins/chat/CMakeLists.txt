@@ -6,12 +6,8 @@ add_library(chat_plugin MODULE
     lib/SnipOverlay.cpp
     lib/SnipOverlay.hpp
     lib/providers/ProviderTypes.hpp
-    lib/providers/GeminiProvider.cpp
-    lib/providers/GeminiProvider.hpp
-    lib/providers/GroqProvider.cpp
-    lib/providers/GroqProvider.hpp
-    lib/providers/OllamaProvider.cpp
-    lib/providers/OllamaProvider.hpp
+    lib/providers/OpenRouterProvider.cpp
+    lib/providers/OpenRouterProvider.hpp
     ${QUOL_HOST_SOURCE_DIR}/ui/QuolPopupWindow.cpp
     ${QUOL_HOST_SOURCE_DIR}/ui/TitleBar.cpp
 )

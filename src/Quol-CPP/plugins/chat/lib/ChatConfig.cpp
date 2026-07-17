@@ -8,23 +8,10 @@ ParsedConfig parse(const QJsonObject &pluginConfig) {
     ParsedConfig out;
 
     const QJsonObject hidden = pluginConfig.value(QStringLiteral("_")).toObject();
-    if (hidden.contains(QStringLiteral("providers")) && hidden.value(QStringLiteral("providers")).isArray()) {
-        QStringList providers;
-        const QJsonArray arr = hidden.value(QStringLiteral("providers")).toArray();
-        for (const auto &v : arr) {
-            const QString p = v.toString().trimmed().toLower();
-            if (!p.isEmpty())
-                providers.append(p);
-        }
-        if (!providers.isEmpty())
-            out.providers = providers;
-    }
-
-    out.providerIndex = hidden.value(QStringLiteral("provider_index")).toInt(0);
-    if (out.providerIndex < 0 || out.providerIndex >= out.providers.size())
-        out.providerIndex = 0;
-
     out.includeImage = hidden.value(QStringLiteral("include_image")).toBool(true);
+
+    const QString activeEndpointName =
+        hidden.value(QStringLiteral("active_endpoint")).toString();
 
     const QJsonObject cfg = pluginConfig.value(QStringLiteral("config")).toObject();
     out.historyEnabled = cfg.value(QStringLiteral("history")).toBool(true);
@@ -35,17 +22,52 @@ ParsedConfig parse(const QJsonObject &pluginConfig) {
     for (auto it = commands.begin(); it != commands.end(); ++it)
         out.commands.insert(it.key(), it.value().toString());
 
-    out.models[QStringLiteral("ollama")] =
-        pluginConfig.value(QStringLiteral("ollama")).toObject().value(QStringLiteral("model")).toString();
-    out.models[QStringLiteral("gemini")] =
-        pluginConfig.value(QStringLiteral("gemini")).toObject().value(QStringLiteral("model")).toString();
-    out.models[QStringLiteral("groq")] =
-        pluginConfig.value(QStringLiteral("groq")).toObject().value(QStringLiteral("model")).toString();
+    const QJsonObject endpoints = pluginConfig.value(QStringLiteral("endpoints")).toObject();
+    const QJsonArray order = pluginConfig.value(QStringLiteral("endpoint_order")).toArray();
 
-    out.apiKeys[QStringLiteral("gemini")] =
-        pluginConfig.value(QStringLiteral("gemini")).toObject().value(QStringLiteral("apikey")).toString();
-    out.apiKeys[QStringLiteral("groq")] =
-        pluginConfig.value(QStringLiteral("groq")).toObject().value(QStringLiteral("apikey")).toString();
+    if (!order.isEmpty()) {
+        for (const auto &v : order) {
+            const QString name = v.toString().trimmed();
+            if (name.isEmpty())
+                continue;
+
+            const QJsonObject ep = endpoints.value(name).toObject();
+            chat::providers::EndpointConfig ec;
+            ec.name = name;
+            ec.model = ep.value(QStringLiteral("model")).toString();
+            ec.apiKey = ep.value(QStringLiteral("apikey")).toString();
+            out.endpoints.append(ec);
+        }
+    } else {
+        const QStringList fallbackKeys = {QStringLiteral("groq"), QStringLiteral("gemini"), QStringLiteral("ollama")};
+        for (const auto &name : fallbackKeys) {
+            const QJsonObject ep = pluginConfig.value(name).toObject();
+            if (ep.isEmpty())
+                continue;
+            chat::providers::EndpointConfig ec;
+            ec.name = name;
+            ec.model = ep.value(QStringLiteral("model")).toString();
+            ec.apiKey = ep.value(QStringLiteral("apikey")).toString();
+            out.endpoints.append(ec);
+        }
+    }
+
+    out.activeEndpointIndex = 0;
+    if (!activeEndpointName.isEmpty()) {
+        for (int i = 0; i < out.endpoints.size(); ++i) {
+            if (out.endpoints[i].name == activeEndpointName) {
+                out.activeEndpointIndex = i;
+                break;
+            }
+        }
+    }
+
+    if (out.endpoints.isEmpty()) {
+        out.endpoints.append({QStringLiteral("openrouter"), QString(), QString()});
+    }
+
+    if (out.activeEndpointIndex < 0 || out.activeEndpointIndex >= out.endpoints.size())
+        out.activeEndpointIndex = 0;
 
     return out;
 }

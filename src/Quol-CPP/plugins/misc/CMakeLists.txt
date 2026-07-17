@@ -6,6 +6,8 @@ add_library(misc_plugin MODULE
     lib/StopwatchWidget.hpp
     lib/DiceWidget.cpp
     lib/DiceWidget.hpp
+    lib/ShaderWidget.cpp
+    lib/ShaderWidget.hpp
 )
 
 target_include_directories(misc_plugin PRIVATE
