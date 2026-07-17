@@ -110,13 +110,8 @@ void Keymap::addGroupRow(
     enableBtn->setCheckable(true);
     enableBtn->setChecked(enabled);
 
-    auto *delBtn = new QPushButton("✖", row);
-    delBtn->setObjectName("btn-danger");
-    delBtn->setFixedSize(24, 24);
-
     hl->addWidget(nameBtn);
     hl->addWidget(enableBtn);
-    hl->addWidget(delBtn);
 
     m_rowsLayout->insertWidget(m_rowsLayout->count() - 1, row);
 
@@ -131,10 +126,6 @@ void Keymap::addGroupRow(
 
     // --- Connections ---
     connect(enableBtn, &QPushButton::clicked, this, [this, groupId]() { toggleGroup(groupId); });
-    connect(delBtn, &QPushButton::clicked, this, [this, groupId]() {
-        removeGroup(groupId);
-        saveKeymaps();
-    });
     connect(nameBtn, &QPushButton::clicked, this, [this, groupId]() { openGroupDialog(groupId); });
 }
 
@@ -159,6 +150,7 @@ void Keymap::openGroupDialog(int groupId) {
         return;
 
     auto *dialog = new KeymapGroupDialog(m_rootWidget, m_groups[index].name, m_groups[index].mappings);
+    dialog->setGroupId(groupId);
 
     connect(dialog, &KeymapGroupDialog::accepted, this, [this, dialog, groupId]() {
         const int i = findGroupIndexById(groupId);
@@ -178,6 +170,11 @@ void Keymap::openGroupDialog(int groupId) {
         if (grp.enabled)
             updateGroupHotkeys(grp);
 
+        saveKeymaps();
+    });
+
+    connect(dialog, &KeymapGroupDialog::deleteRequested, this, [this, groupId]() {
+        removeGroup(groupId);
         saveKeymaps();
     });
 
