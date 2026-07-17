@@ -2,6 +2,7 @@ TODO
 - keymap: del btn in popup
 
 5.0:
+- keymap: ui fixes
 - chat: more providers, better, provider ui, connect output to toggle key
 - musicPlayer plugin
 - c++ migration

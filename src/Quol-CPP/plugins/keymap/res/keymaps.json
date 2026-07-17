@@ -1,0 +1,11 @@
+{
+    "tetrio": {
+        "mappings": [
+            ["up", "c"],
+            ["q", "z"],
+            ["e", "up"],
+            ["w", "a"]
+        ],
+        "enabled": false
+    }
+}

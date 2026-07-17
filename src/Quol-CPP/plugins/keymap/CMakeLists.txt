@@ -25,6 +25,9 @@ add_custom_command(TARGET keymap_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_SOURCE_DIR}/res/config.json
         $<TARGET_FILE_DIR:keymap_plugin>/res/config.json
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/keymaps.json
+        $<TARGET_FILE_DIR:keymap_plugin>/res/keymaps.json
     COMMAND ${CMAKE_COMMAND} -E make_directory ${QUOL_RUNTIME_DIR}/plugins/keymap/res
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:keymap_plugin>
@@ -32,4 +35,7 @@ add_custom_command(TARGET keymap_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_SOURCE_DIR}/res/config.json
         ${QUOL_RUNTIME_DIR}/plugins/keymap/res/config.json
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/keymaps.json
+        ${QUOL_RUNTIME_DIR}/plugins/keymap/res/keymaps.json
 )
