@@ -69,7 +69,7 @@ void Misc::initialize(const QString &pluginRootPath, const PluginConfig &pluginC
     auto *dw = new DiceWidget(pluginRootPath);
     m_tools.append({dw, nullptr});
 
-    auto *shader = new ShaderWidget(pluginRootPath);
+    auto *shader = new ShaderWidget();
     connect(shader, &ShaderWidget::closed, this, [this, shader]() {
         for (int i = 0; i < m_tools.size(); ++i) {
             if (m_tools[i].tool == shader && m_tools[i].btn) {

@@ -1,5 +1,4 @@
 #include "plugins/misc/lib/ShaderWidget.hpp"
-#include "plugin_api/QuolServices.hpp"
 #include "ui/QuolPopupWindow.hpp"
 
 #include <QCloseEvent>
@@ -8,17 +7,15 @@
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QMouseEvent>
-#include <QMoveEvent>
 #include <QPainter>
 #include <QPlainTextEdit>
 #include <QPushButton>
 #include <QScreen>
 #include <QVBoxLayout>
 
-ShaderWidget::ShaderWidget(const QString &pluginRootPath, QWidget *parent)
-    : QWidget(parent), m_rootPath(pluginRootPath) {
+ShaderWidget::ShaderWidget(QWidget *parent)
+    : QWidget(parent) {
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
-    setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_ShowWithoutActivating);
     setMouseTracking(true);
     resize(200, 150);
@@ -26,11 +23,12 @@ ShaderWidget::ShaderWidget(const QString &pluginRootPath, QWidget *parent)
 }
 
 void ShaderWidget::start(QuolServices *services) {
-    m_services = services;
+    (void)services;
     if (QScreen *screen = QGuiApplication::primaryScreen()) {
         const QRect g = screen->availableGeometry();
         move(g.center().x() - width() / 2, g.center().y() - height() / 2);
     }
+    captureBackground();
     show();
     raise();
     activateWindow();
@@ -48,21 +46,12 @@ QWidget *ShaderWidget::widget() {
     return this;
 }
 
-void ShaderWidget::resizeEvent(QResizeEvent *event) {
-    QWidget::resizeEvent(event);
-}
-
-void ShaderWidget::moveEvent(QMoveEvent *event) {
-    QWidget::moveEvent(event);
-}
-
 void ShaderWidget::paintEvent(QPaintEvent *) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
-    // Nearly-transparent fill so mouse events are captured by the OS.
-    // Fully transparent (alpha=0) pixels on a layered window pass through.
-    p.fillRect(rect(), QColor(0, 0, 0, 1));
+    if (!m_bgCapture.isNull())
+        p.drawPixmap(0, 0, m_bgCapture);
 
     QPen borderPen(QColor(100, 180, 255), 2);
     p.setPen(borderPen);
@@ -144,6 +133,32 @@ void ShaderWidget::openSettings() {
     popup->show();
     popup->raise();
     popup->activateWindow();
+}
+
+// ---------------------------------------------------------------------------
+// Background capture (inverted snip)
+// ---------------------------------------------------------------------------
+
+void ShaderWidget::captureBackground() {
+    const QRect geom = geometry();
+    const bool wasVisible = isVisible();
+    if (wasVisible)
+        hide();
+
+    if (QScreen *screen = QGuiApplication::primaryScreen()) {
+        QPixmap px = screen->grabWindow(0, geom.x(), geom.y(), geom.width(), geom.height());
+        if (!px.isNull()) {
+            QImage img = px.toImage();
+            img.invertPixels();
+            m_bgCapture = QPixmap::fromImage(img);
+        }
+    }
+
+    if (wasVisible) {
+        show();
+        raise();
+        activateWindow();
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -236,9 +251,14 @@ void ShaderWidget::mouseMoveEvent(QMouseEvent *event) {
 
 void ShaderWidget::mouseReleaseEvent(QMouseEvent *event) {
     if (event->button() == Qt::LeftButton) {
+        const bool changed = m_dragging || m_resizing;
         m_dragging = false;
         m_resizing = false;
         m_resizeEdge = Edge::None;
+        if (changed) {
+            captureBackground();
+            update();
+        }
         event->accept();
     }
 }

@@ -2,16 +2,16 @@
 
 #include "plugins/misc/lib/ToolBase.hpp"
 
+#include <QPixmap>
 #include <QPoint>
 #include <QRect>
-#include <QString>
 #include <QWidget>
 
 class ShaderWidget final : public QWidget, public ToolBase {
     Q_OBJECT
 
 public:
-    explicit ShaderWidget(const QString &pluginRootPath, QWidget *parent = nullptr);
+    explicit ShaderWidget(QWidget *parent = nullptr);
 
     QString label() const override { return QStringLiteral("Shader"); }
     void start(QuolServices *services) override;
@@ -30,17 +30,15 @@ protected:
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
-    void resizeEvent(QResizeEvent *event) override;
-    void moveEvent(QMoveEvent *event) override;
 
 private:
     enum class Edge { None, Left, Right, Top, Bottom, TopLeft, TopRight, BottomLeft, BottomRight };
 
     Edge edgeAtPos(const QPoint &pos) const;
     void applyEdgeCursor(Edge edge);
+    void captureBackground();
 
-    QString m_rootPath;
-    QuolServices *m_services = nullptr;
+    QPixmap m_bgCapture;
 
     // Drag
     QPoint m_dragOffset;
