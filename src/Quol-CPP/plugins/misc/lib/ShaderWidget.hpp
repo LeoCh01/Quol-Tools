@@ -2,9 +2,12 @@
 
 #include "plugins/misc/lib/ToolBase.hpp"
 
+#include <QImage>
 #include <QPixmap>
 #include <QPoint>
 #include <QRect>
+#include <QString>
+#include <QTimer>
 #include <QWidget>
 
 class ShaderWidget final : public QWidget, public ToolBase {
@@ -12,6 +15,7 @@ class ShaderWidget final : public QWidget, public ToolBase {
 
 public:
     explicit ShaderWidget(QWidget *parent = nullptr);
+    ~ShaderWidget() override;
 
     QString label() const override { return QStringLiteral("Shader"); }
     void start(QuolServices *services) override;
@@ -32,13 +36,25 @@ protected:
     void closeEvent(QCloseEvent *event) override;
 
 private:
+    struct GLCache;
+
     enum class Edge { None, Left, Right, Top, Bottom, TopLeft, TopRight, BottomLeft, BottomRight };
 
     Edge edgeAtPos(const QPoint &pos) const;
     void applyEdgeCursor(Edge edge);
     void captureBackground();
+    void applyShaderToCapture();
+    static QImage renderShader(const QImage &source, const QString &fragSrc, float time, GLCache *cache, QString *errorLog = nullptr);
+    void onAnimTick();
 
+    QImage m_rawCapture;
     QPixmap m_bgCapture;
+    QString m_shaderSource;
+    qreal m_captureDpr = 1.0;
+
+    QTimer *m_animTimer = nullptr;
+    float m_animTime = 0.0f;
+    GLCache *m_gl = nullptr;
 
     // Drag
     QPoint m_dragOffset;

@@ -39,7 +39,7 @@ if(NOT EXISTS "${QUOL_CORE_DLL}")
 endif()
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Network)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Network OpenGL)
 find_package(Qt${QT_VERSION_MAJOR} COMPONENTS Multimedia QUIET)
 
 # Plugin sources include headers via paths like plugins/example/Example.hpp.

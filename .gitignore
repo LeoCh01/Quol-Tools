@@ -4,6 +4,7 @@ __pycache__/
 build/
 dist/
 downloads/
+scripts/
 
 CMakeUserPresets.json
 plugin-zip-config.json

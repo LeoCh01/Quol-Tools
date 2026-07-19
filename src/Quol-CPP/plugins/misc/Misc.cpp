@@ -5,6 +5,7 @@
 #include "plugins/misc/lib/ShaderWidget.hpp"
 
 #include <QHBoxLayout>
+#include <QIcon>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -37,7 +38,8 @@ QWidget *Misc::createWidget(QWidget *parent) {
             row->setContentsMargins(0, 0, 0, 0);
             row->setSpacing(4);
 
-            auto *settingsBtn = new QPushButton(QStringLiteral("..."), m_widget);
+            auto *settingsBtn = new QPushButton(m_widget);
+            settingsBtn->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/setting.svg")));
             settingsBtn->setFixedSize(24, 24);
             settingsBtn->setObjectName(QStringLiteral("btn-settings"));
             connect(settingsBtn, &QPushButton::clicked, shader, &ShaderWidget::openSettings);
