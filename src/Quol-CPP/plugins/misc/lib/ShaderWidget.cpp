@@ -6,7 +6,6 @@
 #include <QFileDialog>
 #include <QGuiApplication>
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QMouseEvent>
 #include <QOffscreenSurface>
 #include <QOpenGLExtraFunctions>
@@ -17,7 +16,92 @@
 #include <QPushButton>
 #include <QScreen>
 #include <QSurfaceFormat>
+#include <QTextBlock>
 #include <QVBoxLayout>
+#include <QVector2D>
+
+// ---------------------------------------------------------------------------
+// ShaderEditor implementation (line-numbered code editor)
+// ---------------------------------------------------------------------------
+
+ShaderEditor::ShaderEditor(QWidget *parent) : QPlainTextEdit(parent) {
+    m_lineNumberArea = new LineNumberArea(this);
+    connect(this, &QPlainTextEdit::blockCountChanged, this, &ShaderEditor::updateLineNumberAreaWidth);
+    connect(this, &QPlainTextEdit::updateRequest, this, &ShaderEditor::updateLineNumberArea);
+    updateLineNumberAreaWidth(0);
+}
+
+int ShaderEditor::lineNumberAreaWidth() const {
+    int digits = 1;
+    int max = qMax(1, blockCount());
+    while (max >= 10) {
+        max /= 10;
+        ++digits;
+    }
+    return 10 + fontMetrics().horizontalAdvance(QLatin1Char('9')) * digits;
+}
+
+void ShaderEditor::updateLineNumberAreaWidth(int) {
+    setViewportMargins(lineNumberAreaWidth(), 0, 0, 0);
+}
+
+void ShaderEditor::updateLineNumberArea(const QRect &rect, int dy) {
+    if (dy)
+        m_lineNumberArea->scroll(0, dy);
+    else
+        m_lineNumberArea->update(0, rect.y(), m_lineNumberArea->width(), rect.height());
+    if (rect.contains(viewport()->rect()))
+        updateLineNumberAreaWidth(0);
+}
+
+void ShaderEditor::resizeEvent(QResizeEvent *event) {
+    QPlainTextEdit::resizeEvent(event);
+    const QRect cr = contentsRect();
+    m_lineNumberArea->setGeometry(QRect(cr.left(), cr.top(), lineNumberAreaWidth(), cr.height()));
+}
+
+void ShaderEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
+    QPainter painter(m_lineNumberArea);
+    painter.fillRect(event->rect(), QColor("#252526"));
+
+    QTextBlock block = firstVisibleBlock();
+    int blockNumber = block.blockNumber();
+    int top = qRound(blockBoundingGeometry(block).translated(contentOffset()).top());
+    int bottom = top + qRound(blockBoundingRect(block).height());
+
+    while (block.isValid() && top <= event->rect().bottom()) {
+        if (block.isVisible() && bottom >= event->rect().top()) {
+            painter.setPen(QColor("#858585"));
+            painter.drawText(
+                0,
+                top,
+                m_lineNumberArea->width(),
+                fontMetrics().height(),
+                Qt::AlignRight,
+                QString::number(blockNumber + 1)
+            );
+        }
+        block = block.next();
+        top = bottom;
+        bottom = top + qRound(blockBoundingRect(block).height());
+        ++blockNumber;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// LineNumberArea
+// ---------------------------------------------------------------------------
+
+LineNumberArea::LineNumberArea(ShaderEditor *editor) : QWidget(editor), m_editor(editor) {
+}
+
+QSize LineNumberArea::sizeHint() const {
+    return QSize(m_editor->lineNumberAreaWidth(), 0);
+}
+
+void LineNumberArea::paintEvent(QPaintEvent *event) {
+    m_editor->lineNumberAreaPaintEvent(event);
+}
 
 // ---------------------------------------------------------------------------
 // Cached OpenGL resources for animated shader rendering
@@ -120,13 +204,13 @@ void ShaderWidget::openSettings() {
     auto *popup = new QuolPopupWindow(QStringLiteral("Shader Settings"), this);
     m_settingsPopup = popup;
     connect(popup, &QObject::destroyed, this, [this]() { m_settingsPopup = nullptr; });
-    popup->resize(500, 400);
+    popup->resize(600, 600);
 
     auto *outerLayout = new QVBoxLayout();
     outerLayout->setContentsMargins(0, 0, 0, 0);
     outerLayout->setSpacing(6);
 
-    auto *editor = new QPlainTextEdit();
+    auto *editor = new ShaderEditor();
     editor->setPlaceholderText(QStringLiteral("Write a GLSL fragment shader..."));
     editor->setStyleSheet(QStringLiteral(
         "QPlainTextEdit {"
@@ -145,6 +229,7 @@ void ShaderWidget::openSettings() {
             "out vec4 fragColor;\n"
             "uniform sampler2D u_texture;\n"
             "uniform float u_time;\n"
+            "uniform vec2  u_resolution;\n"
             "\n"
             "void main() {\n"
             "    vec4 color = texture(u_texture, v_texCoord);\n"
@@ -154,9 +239,21 @@ void ShaderWidget::openSettings() {
     }
     outerLayout->addWidget(editor, 1);
 
-    auto *statusLabel = new QLabel();
-    statusLabel->setStyleSheet(QStringLiteral("color: #888; padding: 2px 4px; font-size: 12px;"));
-    outerLayout->addWidget(statusLabel);
+    auto *statusLog = new QPlainTextEdit();
+    statusLog->setReadOnly(true);
+    statusLog->setFixedHeight(60);
+    statusLog->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    statusLog->setStyleSheet(QStringLiteral(
+        "QPlainTextEdit {"
+        "  background: #1E1E1E;"
+        "  color: #888;"
+        "  font-family: 'Consolas', monospace;"
+        "  font-size: 12px;"
+        "  border: none;"
+        "}"
+        "QPlainTextEdit:focus { border: none; }"
+    ));
+    outerLayout->addWidget(statusLog);
 
     auto *btnRow = new QHBoxLayout();
     btnRow->setSpacing(6);
@@ -202,7 +299,7 @@ void ShaderWidget::openSettings() {
         }
     });
 
-    connect(saveBtn, &QPushButton::clicked, this, [this, editor, statusLabel, popup]() {
+    connect(saveBtn, &QPushButton::clicked, this, [this, editor, statusLog]() {
         QString error;
         QImage result = renderShader(m_rawCapture, editor->toPlainText(), 0.0f, m_gl, &error);
         if (!result.isNull()) {
@@ -213,11 +310,27 @@ void ShaderWidget::openSettings() {
             update();
             if (!m_shaderSource.trimmed().isEmpty())
                 m_animTimer->start();
-            statusLabel->setStyleSheet(QStringLiteral("color: #98C379; padding: 2px 4px; font-size: 12px;"));
-            statusLabel->setText(QStringLiteral("Shader compiled successfully."));
+            statusLog->setStyleSheet(QStringLiteral(
+                "QPlainTextEdit {"
+                "  background: #1E1E1E;"
+                "  color: #98C379;"
+                "  font-family: 'Consolas', monospace;"
+                "  font-size: 12px;"
+                "  border: none;"
+                "}"
+            ));
+            statusLog->setPlainText(QStringLiteral("Shader compiled successfully."));
         } else {
-            statusLabel->setStyleSheet(QStringLiteral("color: #E06C75; padding: 2px 4px; font-size: 12px;"));
-            statusLabel->setText(error);
+            statusLog->setStyleSheet(QStringLiteral(
+                "QPlainTextEdit {"
+                "  background: #1E1E1E;"
+                "  color: #E06C75;"
+                "  font-family: 'Consolas', monospace;"
+                "  font-size: 12px;"
+                "  border: none;"
+                "}"
+            ));
+            statusLog->setPlainText(error);
         }
     });
 
@@ -299,8 +412,9 @@ static const QString kVertexSrc = QStringLiteral(
     "}\n"
 );
 
-QImage ShaderWidget::renderShader(const QImage &source, const QString &fragSrc,
-                                   float time, GLCache *cache, QString *errorLog) {
+QImage ShaderWidget::renderShader(
+    const QImage &source, const QString &fragSrc, float time, GLCache *cache, QString *errorLog
+) {
     if (fragSrc.trimmed().isEmpty())
         return source;
 
@@ -313,7 +427,8 @@ QImage ShaderWidget::renderShader(const QImage &source, const QString &fragSrc,
         cache->ctx = new QOpenGLContext();
         cache->ctx->setFormat(fmt);
         if (!cache->ctx->create()) {
-            if (errorLog) *errorLog = QStringLiteral("Failed to create OpenGL context.");
+            if (errorLog)
+                *errorLog = QStringLiteral("Failed to create OpenGL context.");
             return QImage();
         }
 
@@ -325,7 +440,8 @@ QImage ShaderWidget::renderShader(const QImage &source, const QString &fragSrc,
     }
 
     if (!cache->ctx->makeCurrent(cache->surface)) {
-        if (errorLog) *errorLog = QStringLiteral("Failed to make OpenGL context current.");
+        if (errorLog)
+            *errorLog = QStringLiteral("Failed to make OpenGL context current.");
         return QImage();
     }
 
@@ -337,7 +453,8 @@ QImage ShaderWidget::renderShader(const QImage &source, const QString &fragSrc,
         cache->prog = new QOpenGLShaderProgram();
 
         if (!cache->prog->addShaderFromSourceCode(QOpenGLShader::Vertex, kVertexSrc)) {
-            if (errorLog) *errorLog = cache->prog->log();
+            if (errorLog)
+                *errorLog = cache->prog->log();
             delete cache->prog;
             cache->prog = nullptr;
             cache->cachedFragSrc.clear();
@@ -345,7 +462,8 @@ QImage ShaderWidget::renderShader(const QImage &source, const QString &fragSrc,
             return QImage();
         }
         if (!cache->prog->addShaderFromSourceCode(QOpenGLShader::Fragment, fragSrc)) {
-            if (errorLog) *errorLog = cache->prog->log();
+            if (errorLog)
+                *errorLog = cache->prog->log();
             delete cache->prog;
             cache->prog = nullptr;
             cache->cachedFragSrc.clear();
@@ -353,7 +471,8 @@ QImage ShaderWidget::renderShader(const QImage &source, const QString &fragSrc,
             return QImage();
         }
         if (!cache->prog->link()) {
-            if (errorLog) *errorLog = cache->prog->log();
+            if (errorLog)
+                *errorLog = cache->prog->log();
             delete cache->prog;
             cache->prog = nullptr;
             cache->cachedFragSrc.clear();
@@ -364,7 +483,8 @@ QImage ShaderWidget::renderShader(const QImage &source, const QString &fragSrc,
     }
 
     if (!cache->prog) {
-        if (errorLog) *errorLog = QStringLiteral("No valid shader program.");
+        if (errorLog)
+            *errorLog = QStringLiteral("No valid shader program.");
         return QImage();
     }
 
@@ -440,6 +560,7 @@ QImage ShaderWidget::renderShader(const QImage &source, const QString &fragSrc,
     f->glBindTexture(GL_TEXTURE_2D, cache->texId);
     cache->prog->setUniformValue("u_texture", 0);
     cache->prog->setUniformValue("u_time", time);
+    cache->prog->setUniformValue("u_resolution", QVector2D(source.width(), source.height()));
 
     f->glBindVertexArray(cache->vao);
     f->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);

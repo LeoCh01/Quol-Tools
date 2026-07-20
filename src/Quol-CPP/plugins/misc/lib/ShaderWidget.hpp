@@ -3,12 +3,56 @@
 #include "plugins/misc/lib/ToolBase.hpp"
 
 #include <QImage>
+#include <QPainter>
 #include <QPixmap>
+#include <QPlainTextEdit>
 #include <QPoint>
 #include <QRect>
 #include <QString>
+#include <QTextBlock>
 #include <QTimer>
 #include <QWidget>
+
+// ---------------------------------------------------------------------------
+// Line-numbered shader editor widget
+// ---------------------------------------------------------------------------
+
+class LineNumberArea;
+
+class ShaderEditor : public QPlainTextEdit {
+    Q_OBJECT
+
+public:
+    explicit ShaderEditor(QWidget *parent = nullptr);
+    void lineNumberAreaPaintEvent(QPaintEvent *event);
+    int lineNumberAreaWidth() const;
+
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
+private slots:
+    void updateLineNumberAreaWidth(int newBlockCount);
+    void updateLineNumberArea(const QRect &rect, int dy);
+
+private:
+    QWidget *m_lineNumberArea = nullptr;
+};
+
+class LineNumberArea : public QWidget {
+public:
+    explicit LineNumberArea(ShaderEditor *editor);
+    QSize sizeHint() const override;
+
+protected:
+    void paintEvent(QPaintEvent *event) override;
+
+private:
+    ShaderEditor *m_editor = nullptr;
+};
+
+// ---------------------------------------------------------------------------
+// Shader tool widget
+// ---------------------------------------------------------------------------
 
 class ShaderWidget final : public QWidget, public ToolBase {
     Q_OBJECT
