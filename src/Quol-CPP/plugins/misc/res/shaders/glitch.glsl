@@ -16,5 +16,5 @@ void main() {
     float g = texture(u_texture, uv).g;
     float b = texture(u_texture, uv - vec2(rgbSplit - 0.01, 0.0)).b;
     float flicker = 1.0 - step(0.98, sin(u_time * 11.0 + px.y)) * 0.3;
-    fragColor = vec4(r, g, b, 1.0) * flicker;
+    fragColor = vec4(r * flicker, g * flicker, b * flicker, 1.0);
 }

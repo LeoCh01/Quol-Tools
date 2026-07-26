@@ -283,7 +283,8 @@ void ShaderWidget::openSettings() {
     connect(importBtn, &QPushButton::clicked, this, [this, editor, popup]() {
         QString path = QFileDialog::getOpenFileName(
             popup, QStringLiteral("Import Shader"),
-            m_pluginRootPath, QStringLiteral("GLSL files (*.glsl);;All Files (*)")
+            m_pluginRootPath + QStringLiteral("/res/shaders"),
+            QStringLiteral("GLSL files (*.glsl);;All Files (*)")
         );
         if (!path.isEmpty()) {
             QFile file(path);
@@ -295,7 +296,7 @@ void ShaderWidget::openSettings() {
     connect(exportBtn, &QPushButton::clicked, this, [this, editor, popup, statusLog]() {
         QString path = QFileDialog::getSaveFileName(
             popup, QStringLiteral("Export Shader"),
-            m_pluginRootPath + QStringLiteral("/shader.glsl"),
+            m_pluginRootPath + QStringLiteral("/res/shaders"),
             QStringLiteral("GLSL files (*.glsl);;All Files (*)")
         );
         if (!path.isEmpty()) {

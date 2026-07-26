@@ -36,6 +36,9 @@ add_custom_command(TARGET misc_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_SOURCE_DIR}/res/img/setting.svg
         $<TARGET_FILE_DIR:misc_plugin>/res/img/setting.svg
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/shaders
+        $<TARGET_FILE_DIR:misc_plugin>/res/shaders
     COMMAND ${CMAKE_COMMAND} -E make_directory ${QUOL_RUNTIME_DIR}/plugins/misc/res
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:misc_plugin>
@@ -52,4 +55,7 @@ add_custom_command(TARGET misc_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_SOURCE_DIR}/res/img/setting.svg
         ${QUOL_RUNTIME_DIR}/plugins/misc/res/img/setting.svg
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/shaders
+        ${QUOL_RUNTIME_DIR}/plugins/misc/res/shaders
 )
