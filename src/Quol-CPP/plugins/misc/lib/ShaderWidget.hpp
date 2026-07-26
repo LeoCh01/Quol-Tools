@@ -7,6 +7,7 @@
 #include <QPixmap>
 #include <QPlainTextEdit>
 #include <QPoint>
+#include <QPointF>
 #include <QRect>
 #include <QString>
 #include <QTextBlock>
@@ -65,6 +66,7 @@ public:
     void start(QuolServices *services) override;
     void stop() override;
     QWidget *widget() override;
+    void setPluginRootPath(const QString &path) { m_pluginRootPath = path; }
 
 public slots:
     void openSettings();
@@ -88,13 +90,15 @@ private:
     void applyEdgeCursor(Edge edge);
     void captureBackground();
     void applyShaderToCapture();
-    static QImage renderShader(const QImage &source, const QString &fragSrc, float time, GLCache *cache, QString *errorLog = nullptr);
+    static QImage renderShader(const QImage &source, const QString &fragSrc, float time, const QPointF &mousePos, GLCache *cache, QString *errorLog = nullptr);
     void onAnimTick();
 
     QImage m_rawCapture;
     QPixmap m_bgCapture;
     QString m_shaderSource;
+    QString m_pluginRootPath;
     qreal m_captureDpr = 1.0;
+    QPointF m_mousePos;
 
     QTimer *m_animTimer = nullptr;
     float m_animTime = 0.0f;

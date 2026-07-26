@@ -119,6 +119,8 @@ struct ShaderWidget::GLCache {
     unsigned int vbo = 0;
     unsigned int ebo = 0;
     bool initialized = false;
+    QOpenGLFramebufferObject *fbo[2] = {nullptr, nullptr};
+    int fboWriteIdx = 0;
 };
 
 ShaderWidget::ShaderWidget(QWidget *parent) : QWidget(parent) {
@@ -148,6 +150,8 @@ ShaderWidget::~ShaderWidget() {
                 f->glDeleteBuffers(1, &m_gl->ebo);
             }
             delete m_gl->prog;
+            delete m_gl->fbo[0];
+            delete m_gl->fbo[1];
             m_gl->ctx->doneCurrent();
         }
         delete m_gl->surface;
@@ -228,8 +232,10 @@ void ShaderWidget::openSettings() {
             "in vec2 v_texCoord;\n"
             "out vec4 fragColor;\n"
             "uniform sampler2D u_texture;\n"
+            "uniform sampler2D u_prevFrame;\n"
             "uniform float u_time;\n"
             "uniform vec2  u_resolution;\n"
+            "uniform vec2  u_mouse;\n"
             "\n"
             "void main() {\n"
             "    vec4 color = texture(u_texture, v_texCoord);\n"
@@ -274,9 +280,10 @@ void ShaderWidget::openSettings() {
     content->setLayout(outerLayout);
     popup->addContent(content);
 
-    connect(importBtn, &QPushButton::clicked, this, [editor]() {
+    connect(importBtn, &QPushButton::clicked, this, [this, editor, popup]() {
         QString path = QFileDialog::getOpenFileName(
-            nullptr, QStringLiteral("Import Shader"), QString(), QStringLiteral("GLSL files (*.glsl);;All Files (*)")
+            popup, QStringLiteral("Import Shader"),
+            m_pluginRootPath, QStringLiteral("GLSL files (*.glsl);;All Files (*)")
         );
         if (!path.isEmpty()) {
             QFile file(path);
@@ -285,23 +292,49 @@ void ShaderWidget::openSettings() {
         }
     });
 
-    connect(exportBtn, &QPushButton::clicked, this, [editor]() {
+    connect(exportBtn, &QPushButton::clicked, this, [this, editor, popup, statusLog]() {
         QString path = QFileDialog::getSaveFileName(
-            nullptr,
-            QStringLiteral("Export Shader"),
-            QStringLiteral("shader.glsl"),
+            popup, QStringLiteral("Export Shader"),
+            m_pluginRootPath + QStringLiteral("/shader.glsl"),
             QStringLiteral("GLSL files (*.glsl);;All Files (*)")
         );
         if (!path.isEmpty()) {
             QFile file(path);
-            if (file.open(QIODevice::WriteOnly | QIODevice::Text))
+            if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
                 file.write(editor->toPlainText().toUtf8());
+            } else {
+                statusLog->setStyleSheet(QStringLiteral(
+                    "QPlainTextEdit {"
+                    "  background: #1E1E1E;"
+                    "  color: #E06C75;"
+                    "  font-family: 'Consolas', monospace;"
+                    "  font-size: 12px;"
+                    "  border: none;"
+                    "}"
+                ));
+                statusLog->setPlainText(QStringLiteral("Error: cannot write to ") + path);
+            }
         }
     });
 
     connect(saveBtn, &QPushButton::clicked, this, [this, editor, statusLog]() {
+        if (m_rawCapture.isNull()) {
+            statusLog->setStyleSheet(QStringLiteral(
+                "QPlainTextEdit {"
+                "  background: #1E1E1E;"
+                "  color: #E06C75;"
+                "  font-family: 'Consolas', monospace;"
+                "  font-size: 12px;"
+                "  border: none;"
+                "}"
+            ));
+            statusLog->setPlainText(QStringLiteral("Error: no captured area. Open the shader area first."));
+            return;
+        }
         QString error;
-        QImage result = renderShader(m_rawCapture, editor->toPlainText(), 0.0f, m_gl, &error);
+        QPointF physMouse(m_mousePos.x() * m_captureDpr,
+                           m_rawCapture.height() - m_mousePos.y() * m_captureDpr);
+        QImage result = renderShader(m_rawCapture, editor->toPlainText(), 0.0f, physMouse, m_gl, &error);
         if (!result.isNull()) {
             m_animTime = 0.0f;
             m_shaderSource = editor->toPlainText();
@@ -378,7 +411,9 @@ void ShaderWidget::applyShaderToCapture() {
         result = m_rawCapture;
         m_animTimer->stop();
     } else {
-        result = renderShader(m_rawCapture, m_shaderSource, m_animTime, m_gl);
+        QPointF physMouse(m_mousePos.x() * m_captureDpr,
+                           m_rawCapture.height() - m_mousePos.y() * m_captureDpr);
+        result = renderShader(m_rawCapture, m_shaderSource, m_animTime, physMouse, m_gl);
         if (result.isNull()) {
             result = m_rawCapture;
             m_animTimer->stop();
@@ -413,7 +448,8 @@ static const QString kVertexSrc = QStringLiteral(
 );
 
 QImage ShaderWidget::renderShader(
-    const QImage &source, const QString &fragSrc, float time, GLCache *cache, QString *errorLog
+    const QImage &source, const QString &fragSrc, float time, const QPointF &mousePos,
+    GLCache *cache, QString *errorLog
 ) {
     if (fragSrc.trimmed().isEmpty())
         return source;
@@ -488,8 +524,11 @@ QImage ShaderWidget::renderShader(
         return QImage();
     }
 
+    const int w = source.width();
+    const int h = source.height();
+
     // Upload texture (or re-upload if dimensions changed)
-    if (source.width() != cache->cachedW || source.height() != cache->cachedH) {
+    if (w != cache->cachedW || h != cache->cachedH) {
         QImage texImg = source.convertToFormat(QImage::Format_RGBA8888);
 
         if (cache->texId)
@@ -497,17 +536,7 @@ QImage ShaderWidget::renderShader(
 
         f->glGenTextures(1, &cache->texId);
         f->glBindTexture(GL_TEXTURE_2D, cache->texId);
-        f->glTexImage2D(
-            GL_TEXTURE_2D,
-            0,
-            GL_RGBA8,
-            texImg.width(),
-            texImg.height(),
-            0,
-            GL_RGBA,
-            GL_UNSIGNED_BYTE,
-            texImg.constBits()
-        );
+        f->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, texImg.constBits());
         f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -521,7 +550,8 @@ QImage ShaderWidget::renderShader(
         }
 
         const float verts[] = {
-            -1.0f, -1.0f, 0.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f
+            -1.0f, -1.0f, 0.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f,
+             1.0f,  1.0f, 1.0f, 0.0f, -1.0f, 1.0f, 0.0f, 0.0f
         };
         const unsigned int idxs[] = {0, 1, 2, 0, 2, 3};
 
@@ -530,45 +560,69 @@ QImage ShaderWidget::renderShader(
         f->glGenBuffers(1, &cache->ebo);
 
         f->glBindVertexArray(cache->vao);
-
         f->glBindBuffer(GL_ARRAY_BUFFER, cache->vbo);
         f->glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-
         f->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cache->ebo);
         f->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idxs), idxs, GL_STATIC_DRAW);
 
         f->glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * (int) sizeof(float), nullptr);
         f->glEnableVertexAttribArray(0);
         f->glVertexAttribPointer(
-            1, 2, GL_FLOAT, GL_FALSE, 4 * (int) sizeof(float), reinterpret_cast<const void *>(2 * sizeof(float))
+            1, 2, GL_FLOAT, GL_FALSE, 4 * (int) sizeof(float),
+            reinterpret_cast<const void *>(2 * sizeof(float))
         );
         f->glEnableVertexAttribArray(1);
 
-        cache->cachedW = source.width();
-        cache->cachedH = source.height();
+        // Resize or create FBOs for ping-pong
+        delete cache->fbo[0];
+        delete cache->fbo[1];
+        cache->fbo[0] = new QOpenGLFramebufferObject(w, h);
+        cache->fbo[1] = new QOpenGLFramebufferObject(w, h);
+        cache->fboWriteIdx = 0;
+
+        cache->fbo[0]->bind();
+        f->glClear(GL_COLOR_BUFFER_BIT);
+        cache->fbo[1]->bind();
+        f->glClear(GL_COLOR_BUFFER_BIT);
+
+        cache->cachedW = w;
+        cache->cachedH = h;
     }
 
     // Per-frame render
-    QOpenGLFramebufferObject fbo(source.size());
-    fbo.bind();
+    int curIdx = cache->fboWriteIdx;
+    int prevIdx = 1 - curIdx;
 
-    f->glViewport(0, 0, source.width(), source.height());
+    cache->fbo[curIdx]->bind();
+    f->glViewport(0, 0, w, h);
     f->glClear(GL_COLOR_BUFFER_BIT);
 
     cache->prog->bind();
+
+    // u_texture = current capture (unit 0)
     f->glActiveTexture(GL_TEXTURE0);
     f->glBindTexture(GL_TEXTURE_2D, cache->texId);
     cache->prog->setUniformValue("u_texture", 0);
+
+    // u_prevFrame = previous frame output (unit 1)
+    f->glActiveTexture(GL_TEXTURE1);
+    f->glBindTexture(GL_TEXTURE_2D, cache->fbo[prevIdx]->texture());
+    cache->prog->setUniformValue("u_prevFrame", 1);
+
     cache->prog->setUniformValue("u_time", time);
-    cache->prog->setUniformValue("u_resolution", QVector2D(source.width(), source.height()));
+    cache->prog->setUniformValue("u_resolution", QVector2D(w, h));
+    cache->prog->setUniformValue("u_mouse", QVector2D(mousePos.x(), mousePos.y()));
 
     f->glBindVertexArray(cache->vao);
     f->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
     // Read back
     QImage result(source.size(), QImage::Format_RGBA8888);
-    f->glReadPixels(0, 0, source.width(), source.height(), GL_RGBA, GL_UNSIGNED_BYTE, result.bits());
+    f->glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, result.bits());
     result = result.flipped(Qt::Vertical);
+
+    // Swap FBOs for next frame
+    cache->fboWriteIdx = prevIdx;
 
     return result;
 }
@@ -653,6 +707,8 @@ void ShaderWidget::mousePressEvent(QMouseEvent *event) {
 }
 
 void ShaderWidget::mouseMoveEvent(QMouseEvent *event) {
+    m_mousePos = event->position();
+
     if (m_resizing) {
         const QPoint delta = event->globalPosition().toPoint() - m_resizeStartPos;
         QRect g = m_resizeStartGeom;
