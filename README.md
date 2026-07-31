@@ -32,8 +32,36 @@ A tool to manage other custom-windowed tools:
 
 - Stopwatch
 - Dice Roll
+- Shader
 
 **Music Player**  
 A tool to play music.
 
----
+## Plugin ZIP layout
+
+A plugin is distributed as a `.zip` file named `<name>--v<version>.zip` (e.g. `example--v3.zip`).
+
+```
+<name>--v<version>.zip
+├── <name>.dll                 # compiled C++ plugin DLL
+├── res/
+│   ├── config.json            # required — metadata and settings
+│   └── ...                    # any other resource files
+```
+
+### `res/config.json`
+
+Must contain a `"_"` section with plugin metadata:
+
+```json
+{
+  "_": {
+    "name": "Example",
+    "version": 1,
+    "description": "Example Quol plugin",
+    "default_geometry": [400, 400, 280, 0]
+  }
+}
+```
+
+The root of the zip is extracted into `plugins/<name>/` at runtime. The DLL filename must match the plugin folder name (without extension).
