@@ -2,6 +2,7 @@
 
 #include <QPoint>
 #include <QRect>
+#include <QString>
 #include <QWidget>
 #include <functional>
 
@@ -13,7 +14,10 @@ class SnipOverlay final : public QWidget {
 
 public:
     explicit SnipOverlay(
-        const QPixmap &screenshot, std::function<void(const QPixmap &)> onSend, QWidget *parent = nullptr
+        const QPixmap &screenshot,
+        std::function<void(const QPixmap &)> onSend,
+        const QString &buttonLabel = QStringLiteral("Send"),
+        QWidget *parent = nullptr
     );
 
 protected:

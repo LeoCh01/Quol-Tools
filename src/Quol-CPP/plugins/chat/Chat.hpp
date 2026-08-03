@@ -14,6 +14,7 @@
 class QLineEdit;
 class QNetworkAccessManager;
 class QPixmap;
+class QProcess;
 class QPushButton;
 class QTextBrowser;
 class QTimer;
@@ -49,6 +50,13 @@ private:
     void startSnipMode();
     void cancelSnipMode();
     void onSnipSelected(const QPixmap &cropped);
+
+    void startExtractMode();
+    void onExtractSelected(const QPixmap &cropped);
+    void runOcr(const QString &imagePath);
+    void onOcrFinished();
+
+    void copyOutput(int messageIndex);
 
     void ensureOutputWindow();
     void setOutputText(const QString &html);
@@ -106,6 +114,7 @@ private:
     QLineEdit *m_promptEdit = nullptr;
     QPushButton *m_includeImageButton = nullptr;
     QPushButton *m_snipButton = nullptr;
+    QPushButton *m_extractButton = nullptr;
 
     QuolPopupWindow *m_outputWindow = nullptr;
     QTextBrowser *m_outputBrowser = nullptr;
@@ -114,4 +123,6 @@ private:
     QNetworkReply *m_reply = nullptr;
     QTimer *m_loadingTimer = nullptr;
     QElapsedTimer m_requestTimer;
+    QProcess *m_ocrProcess = nullptr;
+    QString m_pendingOcrPath;
 };

@@ -6,12 +6,13 @@
 #include <QPen>
 #include <QPushButton>
 
-SnipOverlay::SnipOverlay(const QPixmap &screenshot, std::function<void(const QPixmap &)> onSend, QWidget *parent)
+SnipOverlay::SnipOverlay(const QPixmap &screenshot, std::function<void(const QPixmap &)> onSend,
+                         const QString &buttonLabel, QWidget *parent)
     : QWidget(parent), m_screenshot(screenshot), m_onSend(std::move(onSend)) {
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
     setCursor(Qt::CrossCursor);
 
-    m_sendButton = new QPushButton(QStringLiteral("Send"), this);
+    m_sendButton = new QPushButton(buttonLabel, this);
     m_sendButton->hide();
     m_sendButton->setCursor(Qt::PointingHandCursor);
     m_sendButton->setStyleSheet(

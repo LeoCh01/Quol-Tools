@@ -10,6 +10,7 @@
 #include "ui/QuolPopupWindow.hpp"
 
 #include <QBuffer>
+#include <QClipboard>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -23,7 +24,9 @@
 #include <QLineEdit>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
+#include <QProcess>
 #include <QPushButton>
+#include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QScreen>
 #include <QScrollArea>
@@ -53,7 +56,8 @@ QString markdownToHtmlFragment(const QString &markdown) {
     return html.mid(start + 1, end - start - 1).trimmed();
 }
 
-QString messageHtml(const QString &role, const QString &text, bool hasImage, bool pending = false) {
+QString messageHtml(const QString &role, const QString &text, bool hasImage, bool pending = false,
+                    int messageIndex = -1) {
     const bool isModel = (role == QStringLiteral("model"));
     const QString align = isModel ? QStringLiteral("left") : QStringLiteral("right");
     const QString cls = (isModel ? QStringLiteral("ai-block") : QStringLiteral("user-block"))
@@ -61,12 +65,19 @@ QString messageHtml(const QString &role, const QString &text, bool hasImage, boo
     const QString attach = hasImage ? QStringLiteral("<div class='attachment'>Screenshot attached</div>") : QString();
     const QString content = markdownToHtmlFragment(text);
 
+    QString copyBtn;
+    if (messageIndex >= 0)
+        copyBtn = QStringLiteral(
+                      "<div class='copy-btn'><a href='copyitem://%1' style='cursor:pointer'>&#10064; copy</a></div>"
+        )
+                      .arg(messageIndex);
+
     return QStringLiteral(
                "<table width='100%'><tr>"
-               "<td align='%1' class='%2'><div>%3%4</div></td>"
+               "<td align='%1' class='%2'><div>%3%4%5</div></td>"
                "</tr></table>"
     )
-        .arg(align, cls, attach, content);
+        .arg(align, cls, attach, content, copyBtn);
 }
 }  // namespace
 
@@ -80,6 +91,7 @@ QWidget *Chat::createWidget(QWidget *parent) {
     m_promptEdit = new QLineEdit(m_widget);
     m_includeImageButton = new QPushButton(m_widget);
     m_snipButton = new QPushButton(m_widget);
+    m_extractButton = new QPushButton(m_widget);
 
     m_includeImageButton->setCheckable(true);
     const QSize iconSize(18, 18);
@@ -88,17 +100,20 @@ QWidget *Chat::createWidget(QWidget *parent) {
     m_clearButton->setIconSize(iconSize);
     m_includeImageButton->setIconSize(iconSize);
     m_snipButton->setIconSize(iconSize);
+    m_extractButton->setIconSize(iconSize);
 
     m_providerButton->setToolTip(QStringLiteral("Select provider / model"));
     m_clearButton->setToolTip(QStringLiteral("Clear message"));
     m_includeImageButton->setToolTip(QStringLiteral("Include screenshot"));
     m_snipButton->setToolTip(QStringLiteral("Snip mode"));
+    m_extractButton->setToolTip(QStringLiteral("Extract text from screen"));
 
     layout->addWidget(m_providerButton);
     layout->addWidget(m_clearButton);
     layout->addWidget(m_promptEdit, 1);
     layout->addWidget(m_includeImageButton);
     layout->addWidget(m_snipButton);
+    layout->addWidget(m_extractButton);
 
     QObject::connect(m_providerButton, &QPushButton::clicked, this, &Chat::showProviderSelector);
     QObject::connect(m_clearButton, &QPushButton::clicked, this, &Chat::clearMessage);
@@ -107,6 +122,7 @@ QWidget *Chat::createWidget(QWidget *parent) {
         updateIncludeImageUi();
     });
     QObject::connect(m_snipButton, &QPushButton::clicked, this, [this]() { startSnipMode(); });
+    QObject::connect(m_extractButton, &QPushButton::clicked, this, [this]() { startExtractMode(); });
     QObject::connect(m_promptEdit, &QLineEdit::returnPressed, this, [this]() { submitPrompt(); });
 
     m_widget->installEventFilter(this);
@@ -134,6 +150,17 @@ void Chat::onUpdateConfig(const PluginConfig &pluginConfig) {
 
 void Chat::shutdown() {
     cancelSnipMode();
+
+    if (m_ocrProcess) {
+        m_ocrProcess->kill();
+        m_ocrProcess->deleteLater();
+        m_ocrProcess = nullptr;
+    }
+
+    if (!m_pendingOcrPath.isEmpty()) {
+        QFile::remove(m_pendingOcrPath);
+        m_pendingOcrPath.clear();
+    }
 
     if (m_loadingTimer) {
         m_loadingTimer->stop();
@@ -166,6 +193,7 @@ void Chat::shutdown() {
     m_promptEdit = nullptr;
     m_includeImageButton = nullptr;
     m_snipButton = nullptr;
+    m_extractButton = nullptr;
     m_widget = nullptr;
 }
 
@@ -201,6 +229,8 @@ void Chat::applyButtonIcons() {
         m_includeImageButton->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/img.svg")));
     if (m_snipButton)
         m_snipButton->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/snip.svg")));
+    if (m_extractButton)
+        m_extractButton->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/extract.svg")));
 }
 
 QString Chat::providerTypeForIndex(int index) {
@@ -394,6 +424,13 @@ void Chat::clearMessage() {
         m_outputWindow->close();
 }
 
+void Chat::copyOutput(int messageIndex) {
+    if (messageIndex < 0 || messageIndex >= m_history.size())
+        return;
+
+    QGuiApplication::clipboard()->setText(m_history.at(messageIndex).text);
+}
+
 void Chat::updateIncludeImageUi() {
     if (!m_includeImageButton)
         return;
@@ -516,6 +553,75 @@ void Chat::onSnipSelected(const QPixmap &cropped) {
     submitPrompt(true);
 }
 
+void Chat::startExtractMode() {
+    const QPixmap screenshot = capturePrimaryScreenPixmap();
+    if (screenshot.isNull())
+        return;
+
+    cancelSnipMode();
+
+    m_snipOverlay = new SnipOverlay(screenshot, [this](const QPixmap &cropped) { onExtractSelected(cropped); },
+                                    QStringLiteral("Extract"));
+    QObject::connect(m_snipOverlay, &QObject::destroyed, this, [this]() { m_snipOverlay = nullptr; });
+    m_snipOverlay->showFullScreen();
+    m_snipOverlay->raise();
+    m_snipOverlay->activateWindow();
+}
+
+void Chat::onExtractSelected(const QPixmap &cropped) {
+    if (cropped.isNull())
+        return;
+
+    const QString path = QDir::tempPath() + QStringLiteral("/quol_ocr_")
+                         + QString::number(QRandomGenerator::global()->generate()) + QStringLiteral(".png");
+    if (!cropped.save(path, "PNG"))
+        return;
+
+    m_pendingOcrPath = path;
+    runOcr(path);
+}
+
+void Chat::runOcr(const QString &imagePath) {
+    if (m_ocrProcess)
+        return;
+
+    const QString script = m_pluginRootPath + QStringLiteral("/res/ocr/ocr.ps1");
+
+    m_ocrProcess = new QProcess(this);
+    m_ocrProcess->setProgram(QStringLiteral("powershell.exe"));
+    m_ocrProcess->setArguments(QStringList{
+        QStringLiteral("-NoProfile"), QStringLiteral("-NoLogo"), QStringLiteral("-ExecutionPolicy"),
+        QStringLiteral("Bypass"), QStringLiteral("-File"), script, QStringLiteral("-ImagePath"), imagePath,
+    });
+    QObject::connect(m_ocrProcess,
+                     QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+                     this,
+                     &Chat::onOcrFinished);
+    m_ocrProcess->start();
+}
+
+void Chat::onOcrFinished() {
+    QProcess *process = m_ocrProcess;
+    m_ocrProcess = nullptr;
+
+    const bool normalExit = process && process->exitStatus() == QProcess::NormalExit && process->exitCode() == 0;
+    const QString text = process ? QString::fromUtf8(process->readAllStandardOutput()).trimmed() : QString();
+
+    if (process) {
+        process->deleteLater();
+    } else {
+        return;
+    }
+
+    if (!m_pendingOcrPath.isEmpty()) {
+        QFile::remove(m_pendingOcrPath);
+        m_pendingOcrPath.clear();
+    }
+
+    if (normalExit && !text.isEmpty())
+        QGuiApplication::clipboard()->setText(text);
+}
+
 void Chat::ensureOutputWindow() {
     if (m_outputWindow)
         return;
@@ -532,6 +638,12 @@ void Chat::ensureOutputWindow() {
     m_outputBrowser->setOpenExternalLinks(true);
     m_outputBrowser->document()->setDocumentMargin(0);
     m_outputWindow->addContent(m_outputBrowser);
+
+    QObject::connect(m_outputBrowser, &QTextBrowser::anchorClicked, this, [this](const QUrl &url) {
+        if (url.scheme() != QStringLiteral("copyitem"))
+            return;
+        copyOutput(url.host().toInt());
+    });
 }
 
 void Chat::setOutputText(const QString &html) {
@@ -572,13 +684,18 @@ QString Chat::buildConversationHtml(const QString &pendingAssistantText) const {
         "blockquote { margin:0.5em 0; padding:4px 10px; border-left:3px solid #888; color:#ccc; }"
         "a { color:#7ab8f5; }"
         ".attachment { color:#aaa; font-size:11px; }"
+        ".copy-btn { text-align:right; margin-top:6px; }"
+        ".copy-btn a { color:#8ac4f5; font-size:11px; text-decoration:none; background:#262626;"
+        "              padding:2px 8px; border-radius:3px; border:1px solid #444; }"
+        ".copy-btn a:hover { background:#333; }"
         "</style>"
         "</head>"
         "<body>"
     );
 
+    int idx = 0;
     for (const auto &item : m_history)
-        html += messageHtml(item.role, item.text, !item.imageBase64.isEmpty());
+        html += messageHtml(item.role, item.text, !item.imageBase64.isEmpty(), false, idx++);
 
     if (!pendingAssistantText.isEmpty())
         html += messageHtml(QStringLiteral("model"), pendingAssistantText, false, true);
@@ -801,6 +918,8 @@ void Chat::setControlsEnabled(bool enabled) {
         m_includeImageButton->setEnabled(enabled);
     if (m_snipButton)
         m_snipButton->setEnabled(enabled);
+    if (m_extractButton)
+        m_extractButton->setEnabled(enabled);
 }
 
 void Chat::updatePromptPlaceholder() {

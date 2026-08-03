@@ -35,6 +35,7 @@ set_target_properties(chat_plugin PROPERTIES
 
 add_custom_command(TARGET chat_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:chat_plugin>/res/img
+    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:chat_plugin>/res/ocr
     COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:chat_plugin>/res/logs
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${CMAKE_CURRENT_SOURCE_DIR}/res/config.json
@@ -42,7 +43,11 @@ add_custom_command(TARGET chat_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/res/img
         $<TARGET_FILE_DIR:chat_plugin>/res/img
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/ocr/ocr.ps1
+        $<TARGET_FILE_DIR:chat_plugin>/res/ocr/ocr.ps1
     COMMAND ${CMAKE_COMMAND} -E make_directory ${QUOL_RUNTIME_DIR}/plugins/chat/res/img
+    COMMAND ${CMAKE_COMMAND} -E make_directory ${QUOL_RUNTIME_DIR}/plugins/chat/res/ocr
     COMMAND ${CMAKE_COMMAND} -E make_directory ${QUOL_RUNTIME_DIR}/plugins/chat/res/logs
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:chat_plugin>
@@ -53,4 +58,7 @@ add_custom_command(TARGET chat_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/res/img
         ${QUOL_RUNTIME_DIR}/plugins/chat/res/img
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/ocr/ocr.ps1
+        ${QUOL_RUNTIME_DIR}/plugins/chat/res/ocr/ocr.ps1
 )
