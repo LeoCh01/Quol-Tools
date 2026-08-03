@@ -1,24 +1,72 @@
 #include "plugins/chat/lib/SnipOverlay.hpp"
 
+#include <QHBoxLayout>
 #include <QKeyEvent>
+#include <QLabel>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPen>
+#include <QPropertyAnimation>
 #include <QPushButton>
+
+namespace {
+const QColor kAccent(86, 156, 255, 235);
+const QColor kDim(0, 0, 0, 90);
+
+QString buttonStyle(const QString &background, const QString &hover, bool darkText = false) {
+    const QString color = darkText ? QStringLiteral("#1c1c1e") : QStringLiteral("white");
+    return QStringLiteral(
+               "QPushButton { background:%1; color:%2; border:none; padding:6px 16px;"
+               " border-radius:6px; font-size:12px; font-weight:600; }"
+               "QPushButton:hover { background:%3; }"
+               "QPushButton:pressed { opacity:0.85; }")
+        .arg(background, color, hover);
+}
+}  // namespace
 
 SnipOverlay::SnipOverlay(const QPixmap &screenshot, std::function<void(const QPixmap &)> onSend,
                          const QString &buttonLabel, QWidget *parent)
     : QWidget(parent), m_screenshot(screenshot), m_onSend(std::move(onSend)) {
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
     setCursor(Qt::CrossCursor);
+    setWindowOpacity(0.0);
 
-    m_sendButton = new QPushButton(buttonLabel, this);
-    m_sendButton->hide();
+    m_toolbar = new QWidget(this);
+    m_toolbar->setObjectName(QStringLiteral("snip-toolbar"));
+    m_toolbar->setStyleSheet(QStringLiteral(
+        "#snip-toolbar { background: rgba(24,24,26,0.92); border: 1px solid rgba(255,255,255,0.12);"
+        " border-radius: 10px; }"
+        "QLabel { color: #e6e6e6; font-size: 11px; padding-left: 4px; }"
+    ));
+    m_toolbar->hide();
+
+    auto *toolbarLayout = new QHBoxLayout(m_toolbar);
+    toolbarLayout->setContentsMargins(12, 6, 8, 6);
+    toolbarLayout->setSpacing(8);
+
+    m_sizeLabel = new QLabel(QStringLiteral("0 × 0 px"), m_toolbar);
+    m_sizeLabel->setAlignment(Qt::AlignCenter);
+    toolbarLayout->addWidget(m_sizeLabel);
+
+m_sendButton = new QPushButton(buttonLabel, m_toolbar);
     m_sendButton->setCursor(Qt::PointingHandCursor);
-    m_sendButton->setStyleSheet(
-        QStringLiteral("background-color: #4CAF50; color: white; padding: 4px 10px; border-radius: 6px;")
-    );
+    m_sendButton->setStyleSheet(buttonStyle(QStringLiteral("#2e7d32"), QStringLiteral("#388e3c")));
+    toolbarLayout->addWidget(m_sendButton);
+
+    m_cancelButton = new QPushButton(QStringLiteral("Cancel"), m_toolbar);
+    m_cancelButton->setCursor(Qt::PointingHandCursor);
+    m_cancelButton->setStyleSheet(buttonStyle(QStringLiteral("#3a3a3e"), QStringLiteral("#4a4a4f")));
+    toolbarLayout->addWidget(m_cancelButton);
+
     connect(m_sendButton, &QPushButton::clicked, this, &SnipOverlay::sendSelection);
+    connect(m_cancelButton, &QPushButton::clicked, this, &SnipOverlay::close);
+
+    m_tipLabel = new QLabel(QStringLiteral("Drag to select area  ·  Esc to cancel"), this);
+    m_tipLabel->setStyleSheet(QStringLiteral(
+        "QLabel { background: rgba(24,24,26,0.85); color: #dcdcdc; border: 1px solid rgba(255,255,255,0.12);"
+        " border-radius: 8px; padding: 8px 18px; font-size: 12px; }"
+    ));
+    m_tipLabel->setCursor(Qt::CrossCursor);
 }
 
 QRect SnipOverlay::selectionToScreenshotRect() const {
@@ -36,6 +84,28 @@ QRect SnipOverlay::selectionToScreenshotRect() const {
     return QRect(x, y, w, h).intersected(m_screenshot.rect());
 }
 
+void SnipOverlay::showEvent(QShowEvent *event) {
+    QWidget::showEvent(event);
+    positionTip();
+
+    QPropertyAnimation *fade = new QPropertyAnimation(this, "windowOpacity", this);
+    fade->setDuration(160);
+    fade->setStartValue(0.0);
+    fade->setEndValue(1.0);
+    fade->start(QAbstractAnimation::DeleteWhenStopped);
+}
+
+void SnipOverlay::resizeEvent(QResizeEvent *event) {
+    QWidget::resizeEvent(event);
+    positionTip();
+}
+
+void SnipOverlay::positionTip() {
+    m_tipLabel->adjustSize();
+    m_tipLabel->move((width() - m_tipLabel->width()) / 2, 26);
+    m_tipLabel->raise();
+}
+
 void SnipOverlay::mousePressEvent(QMouseEvent *event) {
     if (event->button() != Qt::LeftButton)
         return;
@@ -44,7 +114,7 @@ void SnipOverlay::mousePressEvent(QMouseEvent *event) {
     m_startPoint = event->position().toPoint();
     m_endPoint = m_startPoint;
     m_selectionRect = {};
-    m_sendButton->hide();
+    m_toolbar->hide();
     update();
 }
 
@@ -67,14 +137,12 @@ void SnipOverlay::mouseReleaseEvent(QMouseEvent *event) {
 
     if (m_selectionRect.width() < 8 || m_selectionRect.height() < 8) {
         m_selectionRect = {};
-        m_sendButton->hide();
+        m_toolbar->hide();
         update();
         return;
     }
 
-    placeSendButton();
-    m_sendButton->show();
-    m_sendButton->raise();
+    placeToolbar();
     update();
 }
 
@@ -90,37 +158,42 @@ void SnipOverlay::paintEvent(QPaintEvent *event) {
     Q_UNUSED(event)
 
     QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
     painter.drawPixmap(rect(), m_screenshot);
-    painter.fillRect(rect(), QColor(0, 0, 0, 60));
 
-    if (!m_selectionRect.isNull()) {
-        const QRect screenshotRect = selectionToScreenshotRect();
-        if (!screenshotRect.isNull()) {
-            const QPixmap cropped = m_screenshot.copy(screenshotRect);
-            painter.drawPixmap(m_selectionRect, cropped);
-        }
+    const QRect s = m_selectionRect;
+    if (s.isNull()) {
+        painter.fillRect(rect(), kDim);
+    } else {
+        painter.fillRect(QRect(0, 0, width(), s.top()), kDim);
+        painter.fillRect(QRect(0, s.bottom() + 1, width(), height() - s.bottom() - 1), kDim);
+        painter.fillRect(QRect(0, s.top(), s.left(), s.height()), kDim);
+        painter.fillRect(QRect(s.right() + 1, s.top(), width() - s.right() - 1, s.height()), kDim);
 
-        QPen pen(QColor(80, 190, 255), 2);
-        painter.setPen(pen);
+        painter.setPen(QPen(QColor(255, 255, 255, 40), 1));
         painter.setBrush(Qt::NoBrush);
-        painter.drawRect(m_selectionRect);
+        painter.drawRect(QRectF(s).adjusted(2, 2, -2, -2));
+
+        painter.setPen(QPen(kAccent, 2));
+        painter.drawRect(QRectF(s).adjusted(1, 1, -1, -1));
     }
 }
 
-void SnipOverlay::placeSendButton() {
-    const QSize btn = m_sendButton->sizeHint();
-    const int pad = 8;
+void SnipOverlay::placeToolbar() {
+    m_sizeLabel->setText(QStringLiteral("%1 × %2 px").arg(m_selectionRect.width()).arg(m_selectionRect.height()));
 
-    int x = m_selectionRect.right() - btn.width() - pad;
-    int y = m_selectionRect.bottom() - btn.height() - pad;
+    m_toolbar->adjustSize();
+    const int pad = 14;
+    int x = m_selectionRect.right() - m_toolbar->width() + pad;
+    int y = m_selectionRect.bottom() + 10;
 
-    x = qMax(m_selectionRect.left() + pad, x);
-    y = qMax(m_selectionRect.top() + pad, y);
+    x = qBound(0, x, width() - m_toolbar->width());
+    y = qBound(0, y, height() - m_toolbar->height());
 
-    x = qBound(0, x, width() - btn.width());
-    y = qBound(0, y, height() - btn.height());
-
-    m_sendButton->setGeometry(x, y, btn.width(), btn.height());
+    m_toolbar->move(x, y);
+    m_toolbar->show();
+    m_toolbar->raise();
+    m_tipLabel->raise();
 }
 
 void SnipOverlay::sendSelection() {

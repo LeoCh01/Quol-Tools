@@ -6,6 +6,7 @@
 #include <QWidget>
 #include <functional>
 
+class QLabel;
 class QPushButton;
 class QPixmap;
 
@@ -26,10 +27,13 @@ protected:
     void mouseReleaseEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void paintEvent(QPaintEvent *event) override;
+    void showEvent(QShowEvent *event) override;
+    void resizeEvent(QResizeEvent *event) override;
 
 private:
     QRect selectionToScreenshotRect() const;
-    void placeSendButton();
+    void placeToolbar();
+    void positionTip();
     void sendSelection();
 
     QPixmap m_screenshot;
@@ -41,4 +45,8 @@ private:
     bool m_isSelecting = false;
 
     QPushButton *m_sendButton = nullptr;
+    QPushButton *m_cancelButton = nullptr;
+    QWidget *m_toolbar = nullptr;
+    QLabel *m_sizeLabel = nullptr;
+    QLabel *m_tipLabel = nullptr;
 };
