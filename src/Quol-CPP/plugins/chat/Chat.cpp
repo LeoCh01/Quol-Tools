@@ -22,8 +22,10 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMouseEvent>
 #include <QNetworkAccessManager>
 #include <QNetworkRequest>
+#include <QPixmap>
 #include <QProcess>
 #include <QPushButton>
 #include <QRandomGenerator>
@@ -35,6 +37,7 @@
 #include <QTextDocument>
 #include <QTimer>
 #include <QUrl>
+#include <QVariant>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -66,9 +69,10 @@ QString messageHtml(const QString &role, const QString &text, bool hasImage, boo
     const QString content = markdownToHtmlFragment(text);
 
     QString copyBtn;
-    if (messageIndex >= 0)
+    if (messageIndex >= 0 && isModel)
         copyBtn = QStringLiteral(
-                      "<div class='copy-btn'><a href='copyitem://%1' style='cursor:pointer'>&#10064; copy</a></div>"
+                      "<div class='copy-btn'><a href='copyitem:%1' style='cursor:pointer'><img src='copyicon' "
+                      "width='14' height='14'/></a></div>"
         )
                       .arg(messageIndex);
 
@@ -446,6 +450,18 @@ void Chat::updateIncludeImageUi() {
 }
 
 bool Chat::eventFilter(QObject *obj, QEvent *event) {
+    if (event->type() == QEvent::MouseButtonRelease && m_outputBrowser
+        && (obj == m_outputBrowser->viewport() || obj == m_outputBrowser)) {
+        auto *mouse = static_cast<QMouseEvent *>(event);
+        if (mouse->button() == Qt::LeftButton) {
+            const QString anchor = m_outputBrowser->anchorAt(mouse->position().toPoint());
+            if (anchor.startsWith(QStringLiteral("copyitem:"))) {
+                copyOutput(anchor.mid(QStringLiteral("copyitem:").length()).toInt());
+                return true;
+            }
+        }
+    }
+
     if (obj != m_widget || !m_hideOutputOnToggle)
         return QObject::eventFilter(obj, event);
 
@@ -638,18 +654,22 @@ void Chat::ensureOutputWindow() {
     m_outputBrowser->setOpenExternalLinks(true);
     m_outputBrowser->document()->setDocumentMargin(0);
     m_outputWindow->addContent(m_outputBrowser);
-
-    QObject::connect(m_outputBrowser, &QTextBrowser::anchorClicked, this, [this](const QUrl &url) {
-        if (url.scheme() != QStringLiteral("copyitem"))
-            return;
-        copyOutput(url.host().toInt());
-    });
+    m_outputBrowser->viewport()->installEventFilter(this);
 }
 
 void Chat::setOutputText(const QString &html) {
     ensureOutputWindow();
     if (!m_outputWindow || !m_outputBrowser)
         return;
+
+    if (!m_pluginRootPath.isEmpty()) {
+        const QPixmap copyPix = QIcon(m_pluginRootPath + QStringLiteral("/res/img/copy.svg")).pixmap(16, 16);
+        m_outputBrowser->document()->addResource(
+            QTextDocument::ImageResource,
+            QUrl(QStringLiteral("copyicon")),
+            QVariant::fromValue(copyPix)
+        );
+    }
 
     m_outputBrowser->setHtml(html);
 
@@ -685,9 +705,10 @@ QString Chat::buildConversationHtml(const QString &pendingAssistantText) const {
         "a { color:#7ab8f5; }"
         ".attachment { color:#aaa; font-size:11px; }"
         ".copy-btn { text-align:right; margin-top:6px; }"
-        ".copy-btn a { color:#8ac4f5; font-size:11px; text-decoration:none; background:#262626;"
-        "              padding:2px 8px; border-radius:3px; border:1px solid #444; }"
-        ".copy-btn a:hover { background:#333; }"
+        ".copy-btn a { display:inline-block; color:#8ac4f5; font-size:11px; text-decoration:none; background:#262626;"
+        "              padding:3px 6px; border-radius:4px; border:1px solid #444; }"
+        ".copy-btn a img { display:block; }"
+        ".copy-btn a:hover { background:#333; border-color:#555; }"
         "</style>"
         "</head>"
         "<body>"
