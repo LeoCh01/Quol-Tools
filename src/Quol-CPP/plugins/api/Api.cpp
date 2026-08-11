@@ -67,10 +67,6 @@ void Api::onUpdateConfig(const PluginConfig &pluginConfig) {
 }
 
 void Api::shutdown() {
-    m_methodDropdown = nullptr;
-    m_urlInput = nullptr;
-    m_bodyInput = nullptr;
-    m_sendButton = nullptr;
 }
 
 void Api::toggleBodyInput() {

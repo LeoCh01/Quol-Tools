@@ -16,8 +16,6 @@ class Misc final : public QObject, public IQuolPlugin {
     Q_INTERFACES(IQuolPlugin)
 
 public:
-    ~Misc() override;
-
     QWidget *createWidget(QWidget *parent = nullptr) override;
     void initialize(const QString &pluginRootPath, const PluginConfig &pluginConfig, QuolServices *services) override;
     void onUpdateConfig(const PluginConfig &pluginConfig) override;

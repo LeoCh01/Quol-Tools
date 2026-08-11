@@ -78,11 +78,6 @@ void ColorPicker::onUpdateConfig(const PluginConfig &pluginConfig) {
 
 void ColorPicker::shutdown() {
     stopPicking();
-    m_previewLabel = nullptr;
-    m_hexLabel = nullptr;
-    m_rgbLabel = nullptr;
-    m_pickButton = nullptr;
-    m_widget = nullptr;
 }
 
 void ColorPicker::applyVisualConfig() {

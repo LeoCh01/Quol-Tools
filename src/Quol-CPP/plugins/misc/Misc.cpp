@@ -1,21 +1,14 @@
 #include "plugins/misc/Misc.hpp"
-#include "plugins/misc/lib/ToolBase.hpp"
-#include "plugins/misc/lib/StopwatchWidget.hpp"
 #include "plugins/misc/lib/DiceWidget.hpp"
 #include "plugins/misc/lib/ShaderWidget.hpp"
+#include "plugins/misc/lib/StopwatchWidget.hpp"
+#include "plugins/misc/lib/ToolBase.hpp"
 
 #include <QHBoxLayout>
 #include <QIcon>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QWidget>
-
-Misc::~Misc() {
-    for (auto &entry : m_tools) {
-        if (entry.tool)
-            entry.tool->stop();
-    }
-}
 
 QWidget *Misc::createWidget(QWidget *parent) {
     m_widget = new QWidget(parent);
@@ -29,9 +22,7 @@ QWidget *Misc::createWidget(QWidget *parent) {
         entry.btn->setObjectName(QStringLiteral("btn-toggle"));
         entry.btn->setCheckable(true);
 
-        connect(entry.btn, &QPushButton::clicked, this, [this, i]() {
-            toggleTool(i);
-        });
+        connect(entry.btn, &QPushButton::clicked, this, [this, i]() { toggleTool(i); });
 
         if (auto *shader = dynamic_cast<ShaderWidget *>(entry.tool)) {
             auto *row = new QHBoxLayout();
@@ -82,6 +73,19 @@ void Misc::initialize(const QString &pluginRootPath, const PluginConfig &pluginC
         }
     });
     m_tools.append({shader, nullptr});
+
+    if (m_services) {
+        m_services->setAppToggledCallback([this](bool on) {
+            if (on)
+                return;
+            for (auto &entry : m_tools) {
+                if (entry.tool && entry.tool->widget()->isVisible())
+                    entry.tool->stop();
+                if (entry.btn)
+                    entry.btn->setChecked(false);
+            }
+        });
+    }
 }
 
 void Misc::onUpdateConfig(const PluginConfig &pluginConfig) {

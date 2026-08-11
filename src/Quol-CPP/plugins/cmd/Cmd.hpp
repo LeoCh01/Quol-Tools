@@ -25,8 +25,6 @@ class Cmd final : public QObject, public IQuolPlugin {
     Q_INTERFACES(IQuolPlugin)
 
 public:
-    ~Cmd() override;
-
     QWidget *createWidget(QWidget *parent = nullptr) override;
     void initialize(const QString &pluginRootPath, const PluginConfig &pluginConfig, QuolServices *services) override;
     void onUpdateConfig(const PluginConfig &pluginConfig) override;
@@ -46,8 +44,6 @@ private:
     QJsonArray serialize() const;
     void deserialize(const QJsonArray &arr);
 
-    QString m_pluginRootPath;
-    PluginConfig m_cfg;
     QString m_commandsPath;
 
     QWidget *m_widget = nullptr;

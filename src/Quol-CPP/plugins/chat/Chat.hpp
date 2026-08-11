@@ -64,7 +64,6 @@ private:
 
     QString applyCommandTemplate(const QString &rawPrompt) const;
     QPixmap capturePrimaryScreenPixmap() const;
-    QString capturePrimaryScreenBase64Png() const;
     static QString pixmapToBase64Png(const QPixmap &pixmap);
 
     void dispatchProviderRequest(int endpointIndex, const QString &prompt, const QString &imageBase64);

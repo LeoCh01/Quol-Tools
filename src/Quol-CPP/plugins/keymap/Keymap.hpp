@@ -55,7 +55,6 @@ private:
     void saveKeymaps() const;
     void loadKeymaps();
 
-    QString m_pluginRootPath;
     PluginConfig m_cfg;
     QuolServices *m_services = nullptr;
 

@@ -1,16 +1,6 @@
 #include "plugins/misc/lib/ShaderWidget.hpp"
 #include "ui/QuolPopupWindow.hpp"
 
-#ifdef Q_OS_WIN
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#include <windows.h>
-#endif
-
 #include <cstring>
 
 #include <QCloseEvent>
@@ -33,14 +23,6 @@
 #include <QVector2D>
 
 #include <memory>
-
-#ifdef Q_OS_WIN
-static void trimWorkingSet() {
-    SetProcessWorkingSetSize(GetCurrentProcess(), static_cast<SIZE_T>(-1), static_cast<SIZE_T>(-1));
-}
-#else
-static void trimWorkingSet() {}
-#endif
 
 // ---------------------------------------------------------------------------
 // RAII wrappers for raw GL handles. They call glDelete* on the *current*
@@ -136,6 +118,22 @@ const QString kDefaultShaderSrc = QStringLiteral(
     "    fragColor = color;\n"
     "}\n"
 );
+
+namespace {
+const QString kLogNeutral = QStringLiteral("#888888");
+const QString kLogOk = QStringLiteral("#98C379");
+const QString kLogWarn = QStringLiteral("#E5C07B");
+const QString kLogError = QStringLiteral("#E06C75");
+
+void setStatusLog(QPlainTextEdit *log, const QString &color, const QString &text) {
+    log->setStyleSheet(QStringLiteral(
+        "QPlainTextEdit { background: #1E1E1E; color: %1; font-family: 'Consolas', monospace;"
+        " font-size: 12px; border: none; }"
+        "QPlainTextEdit:focus { border: none; }"
+    ).arg(color));
+    log->setPlainText(text);
+}
+}  // namespace
 
 // ---------------------------------------------------------------------------
 // ShaderEditor implementation (line-numbered code editor)
@@ -254,18 +252,7 @@ ShaderWidget::ShaderWidget(QWidget *parent) : QWidget(parent) {
 }
 
 ShaderWidget::~ShaderWidget() {
-    if (m_gl && m_gl->initialized) {
-        if (m_gl->ctx && m_gl->surface) {
-            m_gl->ctx->makeCurrent(m_gl->surface);
-            m_gl->texture.release();
-            m_gl->quad.release();
-            delete m_gl->fbo[0];
-            delete m_gl->fbo[1];
-            m_gl->ctx->doneCurrent();
-        }
-        delete m_gl->surface;
-        delete m_gl->ctx;
-    }
+    releaseGles();
     delete m_gl;
 }
 
@@ -291,7 +278,6 @@ void ShaderWidget::stop() {
     m_rawCapture = QImage();
     m_bgImage = QImage();
     releaseGles();
-    trimWorkingSet();
     hide();
 }
 
@@ -367,27 +353,14 @@ void ShaderWidget::openSettings() {
         "  font-size: 13px;"
         "}"
     ));
-    if (!m_shaderSource.isEmpty()) {
-        editor->setPlainText(m_shaderSource);
-    } else {
-        editor->setPlainText(kDefaultShaderSrc);
-    }
+    editor->setPlainText(m_shaderSource.isEmpty() ? kDefaultShaderSrc : m_shaderSource);
     outerLayout->addWidget(editor, 1);
 
     auto *statusLog = new QPlainTextEdit();
     statusLog->setReadOnly(true);
     statusLog->setFixedHeight(60);
     statusLog->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    statusLog->setStyleSheet(QStringLiteral(
-        "QPlainTextEdit {"
-        "  background: #1E1E1E;"
-        "  color: #888;"
-        "  font-family: 'Consolas', monospace;"
-        "  font-size: 12px;"
-        "  border: none;"
-        "}"
-        "QPlainTextEdit:focus { border: none; }"
-    ));
+    setStatusLog(statusLog, kLogNeutral, QString());
     outerLayout->addWidget(statusLog);
 
     auto *btnRow = new QHBoxLayout();
@@ -435,39 +408,19 @@ void ShaderWidget::openSettings() {
             if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
                 file.write(editor->toPlainText().toUtf8());
             } else {
-                statusLog->setStyleSheet(QStringLiteral(
-                    "QPlainTextEdit {"
-                    "  background: #1E1E1E;"
-                    "  color: #E06C75;"
-                    "  font-family: 'Consolas', monospace;"
-                    "  font-size: 12px;"
-                    "  border: none;"
-                    "}"
-                ));
-                statusLog->setPlainText(QStringLiteral("Error: cannot write to ") + path);
+                setStatusLog(statusLog, kLogError, QStringLiteral("Error: cannot write to ") + path);
             }
         }
     });
 
     connect(saveBtn, &QPushButton::clicked, this, [this, editor, statusLog]() {
         if (m_rawCapture.isNull()) {
-            statusLog->setStyleSheet(QStringLiteral(
-                "QPlainTextEdit {"
-                "  background: #1E1E1E;"
-                "  color: #E06C75;"
-                "  font-family: 'Consolas', monospace;"
-                "  font-size: 12px;"
-                "  border: none;"
-                "}"
-            ));
-            statusLog->setPlainText(QStringLiteral("Error: no captured area. Open the shader area first."));
+            setStatusLog(statusLog, kLogError, QStringLiteral("Error: no captured area. Open the shader area first."));
             return;
         }
-        QString error;
-        QPointF physMouse(m_mousePos.x() * m_captureDpr,
-                           m_rawCapture.height() - m_mousePos.y() * m_captureDpr);
         QImage compiled;
-        if (renderShader(m_rawCapture, editor->toPlainText(), 0.0f, physMouse, m_gl, compiled, &error)) {
+        QString error;
+        if (renderShader(m_rawCapture, editor->toPlainText(), 0.0f, physMouse(), m_gl, compiled, &error)) {
             m_animTime = 0.0f;
             m_shaderSource = editor->toPlainText();
             m_bgImage = compiled;
@@ -475,48 +428,21 @@ void ShaderWidget::openSettings() {
             update();
             if (!m_shaderSource.trimmed().isEmpty())
                 m_animTimer->start();
-            statusLog->setStyleSheet(QStringLiteral(
-                "QPlainTextEdit {"
-                "  background: #1E1E1E;"
-                "  color: #98C379;"
-                "  font-family: 'Consolas', monospace;"
-                "  font-size: 12px;"
-                "  border: none;"
-                "}"
-            ));
-            statusLog->setPlainText(QStringLiteral("Shader compiled successfully."));
+            setStatusLog(statusLog, kLogOk, QStringLiteral("Shader compiled successfully."));
         } else {
-            statusLog->setStyleSheet(QStringLiteral(
-                "QPlainTextEdit {"
-                "  background: #1E1E1E;"
-                "  color: #E06C75;"
-                "  font-family: 'Consolas', monospace;"
-                "  font-size: 12px;"
-                "  border: none;"
-                "}"
-            ));
-            statusLog->setPlainText(error);
+            setStatusLog(statusLog, kLogError, error);
         }
     });
 
     connect(resetBtn, &QPushButton::clicked, this, [this, editor, statusLog]() {
         m_shaderSource.clear();
         m_animTime = 0.0f;
+        m_rawCapture = QImage();
+        m_bgImage = QImage();
         editor->setPlainText(kDefaultShaderSrc);
-        applyShaderToCapture();
         releaseGles();
-        trimWorkingSet();
         update();
-        statusLog->setStyleSheet(QStringLiteral(
-            "QPlainTextEdit {"
-            "  background: #1E1E1E;"
-            "  color: #E5C07B;"
-            "  font-family: 'Consolas', monospace;"
-            "  font-size: 12px;"
-            "  border: none;"
-            "}"
-        ));
-        statusLog->setPlainText(QStringLiteral("Shader reset to default (none)."));
+        setStatusLog(statusLog, kLogWarn, QStringLiteral("Shader reset to default (none)."));
     });
 
     connect(cancelBtn, &QPushButton::clicked, popup, &QWidget::close);
@@ -561,17 +487,18 @@ void ShaderWidget::applyShaderToCapture() {
     if (m_shaderSource.trimmed().isEmpty() || m_rawCapture.isNull()) {
         m_bgImage = m_rawCapture;
         m_animTimer->stop();
-    } else {
-        QPointF physMouse(m_mousePos.x() * m_captureDpr,
-                           m_rawCapture.height() - m_mousePos.y() * m_captureDpr);
-        if (!renderShader(m_rawCapture, m_shaderSource, m_animTime, physMouse, m_gl, m_bgImage)) {
-            m_bgImage = m_rawCapture;
-            m_animTimer->stop();
-        } else if (!m_animTimer->isActive()) {
-            m_animTimer->start();
-        }
+    } else if (!renderShader(m_rawCapture, m_shaderSource, m_animTime, physMouse(), m_gl, m_bgImage)) {
+        m_bgImage = m_rawCapture;
+        m_animTimer->stop();
+    } else if (!m_animTimer->isActive()) {
+        m_animTimer->start();
     }
     m_bgImage.setDevicePixelRatio(m_captureDpr);
+}
+
+QPointF ShaderWidget::physMouse() const {
+    return QPointF(m_mousePos.x() * m_captureDpr,
+                   m_rawCapture.height() - m_mousePos.y() * m_captureDpr);
 }
 
 void ShaderWidget::onAnimTick() {

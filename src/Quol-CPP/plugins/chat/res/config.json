@@ -2,7 +2,7 @@
   "_": {
     "default_geometry": [10, 930, 500, 0],
     "name": "Chat",
-    "version": 4,
+    "version": 5,
     "description": "Chat actions row",
     "include_image": true,
     "endpoint_index": 0,

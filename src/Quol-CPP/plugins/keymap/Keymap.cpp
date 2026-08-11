@@ -2,6 +2,7 @@
 #include "plugins/keymap/lib/KeymapGroupDialog.hpp"
 
 #include "core/InputManager.hpp"
+#include "core/JsonFile.hpp"
 
 #include <QFile>
 #include <QGroupBox>
@@ -48,7 +49,6 @@ QWidget *Keymap::createWidget(QWidget *parent) {
 }
 
 void Keymap::initialize(const QString &pluginRootPath, const PluginConfig &pluginConfig, QuolServices *services) {
-    m_pluginRootPath = pluginRootPath;
     m_cfg = pluginConfig;
     m_services = services;
     m_keymapsPath = pluginRootPath + "/res/keymaps.json";
@@ -254,9 +254,7 @@ void Keymap::saveKeymaps() const {
         root[g.name] = groupObj;
     }
 
-    QFile f(m_keymapsPath);
-    if (f.open(QIODevice::WriteOnly | QIODevice::Truncate))
-        f.write(QJsonDocument(root).toJson());
+    writeJsonObjectFile(m_keymapsPath, root, /* compact */ true);
 }
 
 void Keymap::loadKeymaps() {

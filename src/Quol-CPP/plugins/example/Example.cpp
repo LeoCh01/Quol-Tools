@@ -80,7 +80,7 @@ QWidget *Example::createWidget(QWidget *parent) {
 }
 
 void Example::initialize(const QString &pluginRootPath, const PluginConfig &pluginConfig, QuolServices *services) {
-    m_pluginRootPath = pluginRootPath;
+    Q_UNUSED(pluginRootPath)
     m_cfg = pluginConfig;
     m_services = services;
 

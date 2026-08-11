@@ -89,6 +89,7 @@ private:
     void applyEdgeCursor(Edge edge);
     void captureBackground();
     void applyShaderToCapture();
+    QPointF physMouse() const;
     void releaseGles();
     static bool renderShader(const QImage &source, const QString &fragSrc, float time, const QPointF &mousePos, GLCache *cache, QImage &out, QString *errorLog = nullptr);
     void onAnimTick();

@@ -188,17 +188,6 @@ void Chat::shutdown() {
         m_outputWindow->close();
         m_outputWindow = nullptr;
     }
-
-    m_outputBrowser = nullptr;
-    m_services = nullptr;
-
-    m_providerButton = nullptr;
-    m_clearButton = nullptr;
-    m_promptEdit = nullptr;
-    m_includeImageButton = nullptr;
-    m_snipButton = nullptr;
-    m_extractButton = nullptr;
-    m_widget = nullptr;
 }
 
 void Chat::applyConfig() {
@@ -495,15 +484,13 @@ void Chat::submitPrompt(bool useExistingSnipImage) {
         if (useExistingSnipImage)
             imageBase64 = m_pendingSnipImageBase64;
         else
-            imageBase64 = capturePrimaryScreenBase64Png();
+            imageBase64 = pixmapToBase64Png(capturePrimaryScreenPixmap());
     }
 
     addHistory(QStringLiteral("user"), prompt, imageBase64);
 
     const QString providerLabel = m_ollamaEnabled ? QStringLiteral("ollama") : providerTypeForIndex(m_endpointIndex);
     appendLog(providerLabel, true, prompt);
-
-    m_pendingProvider = providerLabel;
 
     setControlsEnabled(false);
     m_requestTimer.start();
@@ -552,7 +539,6 @@ void Chat::startSnipMode() {
 void Chat::cancelSnipMode() {
     if (m_snipOverlay) {
         m_snipOverlay->close();
-        m_snipOverlay->deleteLater();
         m_snipOverlay = nullptr;
     }
 }
@@ -748,10 +734,6 @@ QString Chat::applyCommandTemplate(const QString &rawPrompt) const {
     QRegularExpression bareExpr(R"(\{\d+\})");
     result.remove(bareExpr);
     return result.trimmed();
-}
-
-QString Chat::capturePrimaryScreenBase64Png() const {
-    return pixmapToBase64Png(capturePrimaryScreenPixmap());
 }
 
 QPixmap Chat::capturePrimaryScreenPixmap() const {

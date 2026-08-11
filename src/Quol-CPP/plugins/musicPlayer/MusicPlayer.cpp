@@ -277,10 +277,6 @@ void MusicPlayer::shutdown() {
     m_engine.reset();
 }
 
-MusicPlayer::~MusicPlayer() {
-    shutdown();
-}
-
 void MusicPlayer::playFile(int index) {
     if (index < 0 || index >= m_songList.size() || !m_engine)
         return;

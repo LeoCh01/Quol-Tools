@@ -2,7 +2,7 @@
   "_": {
     "default_geometry": [910, 10, 190, 0],
     "name": "API",
-    "version": 1,
+    "version": 2,
     "description": "Mini Postman — HTTP request tool"
   }
 }

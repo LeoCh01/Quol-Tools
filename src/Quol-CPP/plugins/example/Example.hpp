@@ -23,7 +23,6 @@ private:
     void refreshLabels();
     void applyHotkeyFromConfig();
 
-    QString m_pluginRootPath;
     PluginConfig m_cfg;
     QuolServices *m_services = nullptr;
 

@@ -16,10 +16,6 @@
 
 #include "ui/QuolPopupWindow.hpp"
 
-Cmd::~Cmd() {
-    shutdown();
-}
-
 QWidget *Cmd::createWidget(QWidget *parent) {
     m_widget = new QWidget(parent);
     auto *root = new QVBoxLayout(m_widget);
@@ -50,16 +46,15 @@ QWidget *Cmd::createWidget(QWidget *parent) {
 }
 
 void Cmd::initialize(const QString &pluginRootPath, const PluginConfig &pluginConfig, QuolServices *services) {
+    Q_UNUSED(pluginConfig)
     Q_UNUSED(services)
-    m_pluginRootPath = pluginRootPath;
-    m_cfg = pluginConfig;
     m_commandsPath = pluginRootPath + QStringLiteral("/res/commands.json");
 
     loadCommands();
 }
 
 void Cmd::onUpdateConfig(const PluginConfig &pluginConfig) {
-    m_cfg = pluginConfig;
+    Q_UNUSED(pluginConfig)
 }
 
 void Cmd::shutdown() {
@@ -73,9 +68,6 @@ void Cmd::shutdown() {
         m_outputWindow->close();
         m_outputWindow = nullptr;
     }
-    m_widget = nullptr;
-    m_commandsLayout = nullptr;
-    m_commandsContainer = nullptr;
 }
 
 void Cmd::openAddDialog() {
