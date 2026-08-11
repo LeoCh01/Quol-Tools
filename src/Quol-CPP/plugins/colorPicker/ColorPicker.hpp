@@ -3,6 +3,7 @@
 #include "plugin_api/IQuolPlugin.hpp"
 
 #include <QObject>
+#include <QPoint>
 
 class QIcon;
 class QLabel;
@@ -39,6 +40,7 @@ private:
     QWidget *m_widget = nullptr;
     qreal m_sf = 1.0;
     bool m_picking = false;
+    QPoint m_lastCursorPos;
 
     QLabel *m_previewLabel = nullptr;
     QLabel *m_hexLabel = nullptr;

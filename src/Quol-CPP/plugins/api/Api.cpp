@@ -57,13 +57,13 @@ QWidget *Api::createWidget(QWidget *parent) {
 }
 
 void Api::initialize(const QString &pluginRootPath, const PluginConfig &pluginConfig, QuolServices *services) {
+    Q_UNUSED(pluginRootPath)
+    Q_UNUSED(pluginConfig)
     Q_UNUSED(services)
-    m_pluginRootPath = pluginRootPath;
-    m_cfg = pluginConfig;
 }
 
 void Api::onUpdateConfig(const PluginConfig &pluginConfig) {
-    m_cfg = pluginConfig;
+    Q_UNUSED(pluginConfig)
 }
 
 void Api::shutdown() {

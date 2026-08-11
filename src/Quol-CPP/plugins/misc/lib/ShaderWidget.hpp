@@ -4,7 +4,6 @@
 
 #include <QImage>
 #include <QPainter>
-#include <QPixmap>
 #include <QPlainTextEdit>
 #include <QPoint>
 #include <QPointF>
@@ -90,11 +89,12 @@ private:
     void applyEdgeCursor(Edge edge);
     void captureBackground();
     void applyShaderToCapture();
-    static QImage renderShader(const QImage &source, const QString &fragSrc, float time, const QPointF &mousePos, GLCache *cache, QString *errorLog = nullptr);
+    void releaseGles();
+    static bool renderShader(const QImage &source, const QString &fragSrc, float time, const QPointF &mousePos, GLCache *cache, QImage &out, QString *errorLog = nullptr);
     void onAnimTick();
 
     QImage m_rawCapture;
-    QPixmap m_bgCapture;
+    QImage m_bgImage;
     QString m_shaderSource;
     QString m_pluginRootPath;
     qreal m_captureDpr = 1.0;

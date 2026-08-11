@@ -30,6 +30,65 @@ static QString formatTime(qint64 ms) {
     return QStringLiteral("%1:%2").arg(min).arg(sec, 2, 10, QLatin1Char('0'));
 }
 
+// ── miniaudio RAII owners ──────────────────────────────────────────────
+namespace music {
+
+EngineOwner::EngineOwner() = default;
+
+EngineOwner::~EngineOwner() {
+    if (initialized && engine) {
+        ma_engine_uninit(engine);
+        delete engine;
+    }
+    engine = nullptr;
+}
+
+bool EngineOwner::init() {
+    engine = new ma_engine();
+    ma_engine_config config = ma_engine_config_init();
+    if (ma_engine_init(&config, engine) != MA_SUCCESS) {
+        delete engine;
+        engine = nullptr;
+        initialized = false;
+        return false;
+    }
+    initialized = true;
+    return true;
+}
+
+SoundOwner::SoundOwner() = default;
+
+SoundOwner::~SoundOwner() {
+    if (initialized && sound) {
+        ma_sound_stop(sound);
+        ma_sound_uninit(sound);
+        delete sound;
+    }
+    sound = nullptr;
+}
+
+bool SoundOwner::init(ma_engine *engine, const QString &filePath) {
+    sound = new ma_sound();
+    const QByteArray pathBytes = filePath.toUtf8();
+    const ma_result result = ma_sound_init_from_file(
+        engine,
+        pathBytes.constData(),
+        MA_SOUND_FLAG_NO_SPATIALIZATION | MA_SOUND_FLAG_NO_PITCH,
+        nullptr,
+        nullptr,
+        sound
+    );
+    if (result != MA_SUCCESS) {
+        delete sound;
+        sound = nullptr;
+        return false;
+    }
+    initialized = true;
+    return true;
+}
+
+}  // namespace music
+
 qint64 MusicPlayer::framesToMs(quint64 frames, quint32 sampleRate) {
     if (sampleRate == 0) return 0;
     return static_cast<qint64>(frames) * 1000 / sampleRate;
@@ -139,8 +198,8 @@ QWidget *MusicPlayer::createWidget(QWidget *parent) {
     });
     connect(m_seekSlider, &QSlider::sliderReleased, this, [this]() {
         m_seekSliderPressed = false;
-        if (m_sound)
-            ma_sound_seek_to_pcm_frame(m_sound, msToFrames(m_seekSlider->value(), m_sampleRate));
+        if (m_sound && m_sound->sound)
+            ma_sound_seek_to_pcm_frame(m_sound->sound, msToFrames(m_seekSlider->value(), m_sampleRate));
     });
     layout->addWidget(m_seekSlider);
 
@@ -164,7 +223,7 @@ QWidget *MusicPlayer::createWidget(QWidget *parent) {
     m_volumeSlider->setToolTip(QStringLiteral("Volume"));
     connect(m_volumeSlider, &QSlider::valueChanged, this, [this](int value) {
         if (m_engine)
-            ma_engine_set_volume(m_engine, value / 100.0f);
+            ma_engine_set_volume(m_engine->engine, value / 100.0f);
         m_cfg.set("_.volume", value);
         m_cfg.save();
     });
@@ -181,16 +240,16 @@ void MusicPlayer::initialize(const QString &pluginRootPath, const PluginConfig &
     m_pluginRootPath = pluginRootPath;
     m_cfg = pluginConfig;
 
-    m_engine = new ma_engine();
-    ma_engine_config engineConfig = ma_engine_config_init();
-    if (ma_engine_init(&engineConfig, m_engine) != MA_SUCCESS) {
+    m_engine = std::make_unique<music::EngineOwner>();
+    if (!m_engine->init()) {
         m_songLabel->setText(QStringLiteral("Failed to initialize audio engine"));
+        m_engine.reset();
         return;
     }
 
-    m_sampleRate = ma_engine_get_sample_rate(m_engine);
+    m_sampleRate = ma_engine_get_sample_rate(m_engine->engine);
     float vol = m_cfg.get("_.volume", 50).toInt() / 100.0f;
-    ma_engine_set_volume(m_engine, vol);
+    ma_engine_set_volume(m_engine->engine, vol);
 
     m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &MusicPlayer::onTick);
@@ -214,17 +273,8 @@ void MusicPlayer::shutdown() {
     if (m_timer)
         m_timer->stop();
 
-    if (m_sound) {
-        ma_sound_stop(m_sound);
-        ma_sound_uninit(m_sound);
-        delete m_sound;
-        m_sound = nullptr;
-    }
-    if (m_engine) {
-        ma_engine_uninit(m_engine);
-        delete m_engine;
-        m_engine = nullptr;
-    }
+    m_sound.reset();
+    m_engine.reset();
 }
 
 MusicPlayer::~MusicPlayer() {
@@ -239,29 +289,17 @@ void MusicPlayer::playFile(int index) {
     m_cfg.set("_.last_index", index);
     m_cfg.save();
 
-    if (m_sound) {
-        ma_sound_stop(m_sound);
-        ma_sound_uninit(m_sound);
-        delete m_sound;
-        m_sound = nullptr;
-    }
-
-    m_sound = new ma_sound();
-    QByteArray pathBytes = m_songList.at(index).toUtf8();
-    ma_result result = ma_sound_init_from_file(m_engine, pathBytes.constData(),
-        MA_SOUND_FLAG_NO_SPATIALIZATION | MA_SOUND_FLAG_NO_PITCH, nullptr, nullptr, m_sound);
-
-    if (result != MA_SUCCESS) {
-        delete m_sound;
-        m_sound = nullptr;
+    m_sound = std::make_unique<music::SoundOwner>();
+    if (!m_sound->init(m_engine->engine, m_songList.at(index))) {
+        m_sound.reset();
         m_soundLengthFrames = 0;
         if (m_songLabel)
             m_songLabel->setText(QStringLiteral("Failed to load file"));
         return;
     }
 
-    ma_sound_get_length_in_pcm_frames(m_sound, &m_soundLengthFrames);
-    ma_sound_start(m_sound);
+    ma_sound_get_length_in_pcm_frames(m_sound->sound, &m_soundLengthFrames);
+    ma_sound_start(m_sound->sound);
 
     int durMs = static_cast<int>(framesToMs(m_soundLengthFrames, m_sampleRate));
     m_seekSlider->setRange(0, durMs);
@@ -283,11 +321,11 @@ void MusicPlayer::playPause() {
         return;
     }
 
-    if (ma_sound_is_playing(m_sound)) {
-        ma_sound_stop(m_sound);
+    if (ma_sound_is_playing(m_sound->sound)) {
+        ma_sound_stop(m_sound->sound);
         setPlayPauseIcon(false);
     } else {
-        ma_sound_start(m_sound);
+        ma_sound_start(m_sound->sound);
         setPlayPauseIcon(true);
     }
 }
@@ -339,13 +377,10 @@ void MusicPlayer::onTick() {
         return;
 
     if (m_soundLengthFrames > 0) {
-        ma_uint64 pos = ma_sound_get_time_in_pcm_frames(m_sound);
+        ma_uint64 pos = ma_sound_get_time_in_pcm_frames(m_sound->sound);
         if (pos >= m_soundLengthFrames) {
-            ma_sound_stop(m_sound);
-            ma_sound_uninit(m_sound);
-            delete m_sound;
-            m_sound = nullptr;
             m_soundLengthFrames = 0;
+            m_sound.reset();
 
             if (m_repeat) {
                 playFile(m_currentIndex);
@@ -395,7 +430,7 @@ void MusicPlayer::updateTimeLabel() {
         m_timeLabel->setText(QStringLiteral("0:00 / 0:00"));
         return;
     }
-    ma_uint64 pos = ma_sound_get_time_in_pcm_frames(m_sound);
+    ma_uint64 pos = ma_sound_get_time_in_pcm_frames(m_sound->sound);
     m_timeLabel->setText(formatTime(framesToMs(pos, m_sampleRate))
                          + QStringLiteral(" / ")
                          + formatTime(framesToMs(m_soundLengthFrames, m_sampleRate)));

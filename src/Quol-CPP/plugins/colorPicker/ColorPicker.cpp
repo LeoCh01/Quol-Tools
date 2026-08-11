@@ -155,6 +155,10 @@ void ColorPicker::updateColor() {
         return;
 
     const QPoint pos = QCursor::pos();
+    if (pos == m_lastCursorPos)
+        return;
+    m_lastCursorPos = pos;
+
     const int ps = m_sampleSize;
 
     // Grab a small region around the cursor (in physical pixels on HiDPI)

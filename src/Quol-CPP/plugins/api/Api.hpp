@@ -34,9 +34,6 @@ private:
         const QJsonObject &headers
     );
 
-    QString m_pluginRootPath;
-    PluginConfig m_cfg;
-
     QComboBox *m_methodDropdown = nullptr;
     QLineEdit *m_urlInput = nullptr;
     QPlainTextEdit *m_bodyInput = nullptr;

@@ -1,6 +1,18 @@
 #include "plugins/misc/lib/ShaderWidget.hpp"
 #include "ui/QuolPopupWindow.hpp"
 
+#ifdef Q_OS_WIN
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
+#include <cstring>
+
 #include <QCloseEvent>
 #include <QFile>
 #include <QFileDialog>
@@ -19,6 +31,111 @@
 #include <QTextBlock>
 #include <QVBoxLayout>
 #include <QVector2D>
+
+#include <memory>
+
+#ifdef Q_OS_WIN
+static void trimWorkingSet() {
+    SetProcessWorkingSetSize(GetCurrentProcess(), static_cast<SIZE_T>(-1), static_cast<SIZE_T>(-1));
+}
+#else
+static void trimWorkingSet() {}
+#endif
+
+// ---------------------------------------------------------------------------
+// RAII wrappers for raw GL handles. They call glDelete* on the *current*
+// GL context, so they must only be destroyed while a context is current.
+// ---------------------------------------------------------------------------
+
+namespace gl {
+
+class Texture {
+public:
+    Texture() = default;
+    ~Texture() { release(); }
+
+    Texture(const Texture &) = delete;
+    Texture &operator=(const Texture &) = delete;
+
+    void create() {
+        release();
+        QOpenGLContext::currentContext()->extraFunctions()->glGenTextures(1, &m_id);
+    }
+
+    void release() {
+        if (QOpenGLContext *ctx = QOpenGLContext::currentContext()) {
+            if (m_id != 0) {
+                ctx->extraFunctions()->glDeleteTextures(1, &m_id);
+                m_id = 0;
+            }
+        }
+    }
+
+    unsigned int id() const { return m_id; }
+
+private:
+    unsigned int m_id = 0;
+};
+
+class Quad {
+public:
+    Quad() = default;
+    ~Quad() { release(); }
+
+    Quad(const Quad &) = delete;
+    Quad &operator=(const Quad &) = delete;
+
+    void create() {
+        release();
+        auto *f = QOpenGLContext::currentContext()->extraFunctions();
+        f->glGenVertexArrays(1, &m_vao);
+        f->glGenBuffers(1, &m_vbo);
+        f->glGenBuffers(1, &m_ebo);
+    }
+
+    void release() {
+        if (QOpenGLContext *ctx = QOpenGLContext::currentContext()) {
+            if (m_vao != 0) {
+                auto *f = ctx->extraFunctions();
+                f->glDeleteVertexArrays(1, &m_vao);
+                f->glDeleteBuffers(1, &m_vbo);
+                f->glDeleteBuffers(1, &m_ebo);
+                m_vao = m_vbo = m_ebo = 0;
+            }
+        }
+    }
+
+    unsigned int vao() const { return m_vao; }
+    unsigned int vbo() const { return m_vbo; }
+    unsigned int ebo() const { return m_ebo; }
+
+private:
+    unsigned int m_vao = 0;
+    unsigned int m_vbo = 0;
+    unsigned int m_ebo = 0;
+};
+
+}  // namespace gl
+
+// ---------------------------------------------------------------------------
+// Default (passthrough) shader shown when no shader is applied
+// ---------------------------------------------------------------------------
+
+const QString kDefaultShaderSrc = QStringLiteral(
+    "#version 330 core\n"
+    "in vec2 v_texCoord;\n"
+    "out vec4 fragColor;\n"
+    "uniform sampler2D u_texture;\n"
+    "uniform sampler2D u_prevFrame;\n"
+    "uniform float u_time;\n"
+    "uniform vec2  u_resolution;\n"
+    "uniform vec2  u_mouse;\n"
+    "\n"
+    "void main() {\n"
+    "    vec4 color = texture(u_texture, v_texCoord);\n"
+    "    fragColor = color;\n"
+    "}\n"
+);
 
 // ---------------------------------------------------------------------------
 // ShaderEditor implementation (line-numbered code editor)
@@ -110,17 +227,16 @@ void LineNumberArea::paintEvent(QPaintEvent *event) {
 struct ShaderWidget::GLCache {
     QOpenGLContext *ctx = nullptr;
     QOffscreenSurface *surface = nullptr;
-    QOpenGLShaderProgram *prog = nullptr;
+    gl::Texture texture;
+    gl::Quad quad;
+    std::unique_ptr<QOpenGLShaderProgram> prog;
     QString cachedFragSrc;
-    unsigned int texId = 0;
     int cachedW = 0;
     int cachedH = 0;
-    unsigned int vao = 0;
-    unsigned int vbo = 0;
-    unsigned int ebo = 0;
     bool initialized = false;
     QOpenGLFramebufferObject *fbo[2] = {nullptr, nullptr};
     int fboWriteIdx = 0;
+    QImage readback;
 };
 
 ShaderWidget::ShaderWidget(QWidget *parent) : QWidget(parent) {
@@ -141,15 +257,8 @@ ShaderWidget::~ShaderWidget() {
     if (m_gl && m_gl->initialized) {
         if (m_gl->ctx && m_gl->surface) {
             m_gl->ctx->makeCurrent(m_gl->surface);
-            auto *f = m_gl->ctx->extraFunctions();
-            if (m_gl->texId)
-                f->glDeleteTextures(1, &m_gl->texId);
-            if (m_gl->vao) {
-                f->glDeleteVertexArrays(1, &m_gl->vao);
-                f->glDeleteBuffers(1, &m_gl->vbo);
-                f->glDeleteBuffers(1, &m_gl->ebo);
-            }
-            delete m_gl->prog;
+            m_gl->texture.release();
+            m_gl->quad.release();
             delete m_gl->fbo[0];
             delete m_gl->fbo[1];
             m_gl->ctx->doneCurrent();
@@ -179,7 +288,41 @@ void ShaderWidget::stop() {
         m_settingsPopup->close();
         m_settingsPopup = nullptr;
     }
+    m_rawCapture = QImage();
+    m_bgImage = QImage();
+    releaseGles();
+    trimWorkingSet();
     hide();
+}
+
+void ShaderWidget::releaseGles() {
+    if (!m_gl || !m_gl->initialized)
+        return;
+
+    if (m_gl->ctx && m_gl->surface) {
+        if (m_gl->ctx->makeCurrent(m_gl->surface)) {
+            m_gl->texture.release();
+            m_gl->quad.release();
+            delete m_gl->fbo[0];
+            delete m_gl->fbo[1];
+        }
+        m_gl->ctx->doneCurrent();
+    }
+
+    m_gl->fbo[0] = nullptr;
+    m_gl->fbo[1] = nullptr;
+    m_gl->prog.reset();
+    m_gl->cachedFragSrc.clear();
+    m_gl->cachedW = 0;
+    m_gl->cachedH = 0;
+    m_gl->fboWriteIdx = 0;
+    m_gl->readback = QImage();
+
+    delete m_gl->surface;
+    m_gl->surface = nullptr;
+    delete m_gl->ctx;
+    m_gl->ctx = nullptr;
+    m_gl->initialized = false;
 }
 
 QWidget *ShaderWidget::widget() {
@@ -190,8 +333,8 @@ void ShaderWidget::paintEvent(QPaintEvent *) {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
-    if (!m_bgCapture.isNull())
-        p.drawPixmap(0, 0, m_bgCapture);
+    if (!m_bgImage.isNull())
+        p.drawImage(0, 0, m_bgImage);
 
     QPen borderPen(QColor(100, 180, 255), 2);
     p.setPen(borderPen);
@@ -227,21 +370,7 @@ void ShaderWidget::openSettings() {
     if (!m_shaderSource.isEmpty()) {
         editor->setPlainText(m_shaderSource);
     } else {
-        editor->setPlainText(QStringLiteral(
-            "#version 330 core\n"
-            "in vec2 v_texCoord;\n"
-            "out vec4 fragColor;\n"
-            "uniform sampler2D u_texture;\n"
-            "uniform sampler2D u_prevFrame;\n"
-            "uniform float u_time;\n"
-            "uniform vec2  u_resolution;\n"
-            "uniform vec2  u_mouse;\n"
-            "\n"
-            "void main() {\n"
-            "    vec4 color = texture(u_texture, v_texCoord);\n"
-            "    fragColor = color;\n"
-            "}\n"
-        ));
+        editor->setPlainText(kDefaultShaderSrc);
     }
     outerLayout->addWidget(editor, 1);
 
@@ -266,8 +395,10 @@ void ShaderWidget::openSettings() {
 
     auto *importBtn = new QPushButton(QStringLiteral("Import"));
     auto *exportBtn = new QPushButton(QStringLiteral("Export"));
+    auto *resetBtn = new QPushButton(QStringLiteral("Reset"));
     btnRow->addWidget(importBtn);
     btnRow->addWidget(exportBtn);
+    btnRow->addWidget(resetBtn);
     btnRow->addStretch();
 
     auto *saveBtn = new QPushButton(QStringLiteral("Save"));
@@ -335,12 +466,12 @@ void ShaderWidget::openSettings() {
         QString error;
         QPointF physMouse(m_mousePos.x() * m_captureDpr,
                            m_rawCapture.height() - m_mousePos.y() * m_captureDpr);
-        QImage result = renderShader(m_rawCapture, editor->toPlainText(), 0.0f, physMouse, m_gl, &error);
-        if (!result.isNull()) {
+        QImage compiled;
+        if (renderShader(m_rawCapture, editor->toPlainText(), 0.0f, physMouse, m_gl, compiled, &error)) {
             m_animTime = 0.0f;
             m_shaderSource = editor->toPlainText();
-            m_bgCapture = QPixmap::fromImage(result);
-            m_bgCapture.setDevicePixelRatio(m_captureDpr);
+            m_bgImage = compiled;
+            m_bgImage.setDevicePixelRatio(m_captureDpr);
             update();
             if (!m_shaderSource.trimmed().isEmpty())
                 m_animTimer->start();
@@ -366,6 +497,26 @@ void ShaderWidget::openSettings() {
             ));
             statusLog->setPlainText(error);
         }
+    });
+
+    connect(resetBtn, &QPushButton::clicked, this, [this, editor, statusLog]() {
+        m_shaderSource.clear();
+        m_animTime = 0.0f;
+        editor->setPlainText(kDefaultShaderSrc);
+        applyShaderToCapture();
+        releaseGles();
+        trimWorkingSet();
+        update();
+        statusLog->setStyleSheet(QStringLiteral(
+            "QPlainTextEdit {"
+            "  background: #1E1E1E;"
+            "  color: #E5C07B;"
+            "  font-family: 'Consolas', monospace;"
+            "  font-size: 12px;"
+            "  border: none;"
+            "}"
+        ));
+        statusLog->setPlainText(QStringLiteral("Shader reset to default (none)."));
     });
 
     connect(cancelBtn, &QPushButton::clicked, popup, &QWidget::close);
@@ -407,24 +558,20 @@ void ShaderWidget::captureBackground() {
 }
 
 void ShaderWidget::applyShaderToCapture() {
-    QImage result;
     if (m_shaderSource.trimmed().isEmpty() || m_rawCapture.isNull()) {
-        result = m_rawCapture;
+        m_bgImage = m_rawCapture;
         m_animTimer->stop();
     } else {
         QPointF physMouse(m_mousePos.x() * m_captureDpr,
                            m_rawCapture.height() - m_mousePos.y() * m_captureDpr);
-        result = renderShader(m_rawCapture, m_shaderSource, m_animTime, physMouse, m_gl);
-        if (result.isNull()) {
-            result = m_rawCapture;
+        if (!renderShader(m_rawCapture, m_shaderSource, m_animTime, physMouse, m_gl, m_bgImage)) {
+            m_bgImage = m_rawCapture;
             m_animTimer->stop();
         } else if (!m_animTimer->isActive()) {
             m_animTimer->start();
         }
     }
-
-    m_bgCapture = QPixmap::fromImage(result);
-    m_bgCapture.setDevicePixelRatio(m_captureDpr);
+    m_bgImage.setDevicePixelRatio(m_captureDpr);
 }
 
 void ShaderWidget::onAnimTick() {
@@ -448,12 +595,15 @@ static const QString kVertexSrc = QStringLiteral(
     "}\n"
 );
 
-QImage ShaderWidget::renderShader(
+bool ShaderWidget::renderShader(
     const QImage &source, const QString &fragSrc, float time, const QPointF &mousePos,
-    GLCache *cache, QString *errorLog
+    GLCache *cache, QImage &out, QString *errorLog
 ) {
-    if (fragSrc.trimmed().isEmpty())
-        return source;
+    out = QImage();
+    if (fragSrc.trimmed().isEmpty()) {
+        out = source;
+        return true;
+    }
 
     // First-time GL setup
     if (!cache->initialized) {
@@ -466,7 +616,7 @@ QImage ShaderWidget::renderShader(
         if (!cache->ctx->create()) {
             if (errorLog)
                 *errorLog = QStringLiteral("Failed to create OpenGL context.");
-            return QImage();
+            return false;
         }
 
         cache->surface = new QOffscreenSurface();
@@ -479,42 +629,38 @@ QImage ShaderWidget::renderShader(
     if (!cache->ctx->makeCurrent(cache->surface)) {
         if (errorLog)
             *errorLog = QStringLiteral("Failed to make OpenGL context current.");
-        return QImage();
+        return false;
     }
 
     auto *f = cache->ctx->extraFunctions();
 
     // Recompile shader if source changed
     if (fragSrc != cache->cachedFragSrc) {
-        delete cache->prog;
-        cache->prog = new QOpenGLShaderProgram();
+        cache->prog = std::make_unique<QOpenGLShaderProgram>();
 
         if (!cache->prog->addShaderFromSourceCode(QOpenGLShader::Vertex, kVertexSrc)) {
             if (errorLog)
                 *errorLog = cache->prog->log();
-            delete cache->prog;
-            cache->prog = nullptr;
+            cache->prog.reset();
             cache->cachedFragSrc.clear();
             cache->ctx->doneCurrent();
-            return QImage();
+            return false;
         }
         if (!cache->prog->addShaderFromSourceCode(QOpenGLShader::Fragment, fragSrc)) {
             if (errorLog)
                 *errorLog = cache->prog->log();
-            delete cache->prog;
-            cache->prog = nullptr;
+            cache->prog.reset();
             cache->cachedFragSrc.clear();
             cache->ctx->doneCurrent();
-            return QImage();
+            return false;
         }
         if (!cache->prog->link()) {
             if (errorLog)
                 *errorLog = cache->prog->log();
-            delete cache->prog;
-            cache->prog = nullptr;
+            cache->prog.reset();
             cache->cachedFragSrc.clear();
             cache->ctx->doneCurrent();
-            return QImage();
+            return false;
         }
         cache->cachedFragSrc = fragSrc;
     }
@@ -522,7 +668,7 @@ QImage ShaderWidget::renderShader(
     if (!cache->prog) {
         if (errorLog)
             *errorLog = QStringLiteral("No valid shader program.");
-        return QImage();
+        return false;
     }
 
     const int w = source.width();
@@ -532,11 +678,8 @@ QImage ShaderWidget::renderShader(
     if (w != cache->cachedW || h != cache->cachedH) {
         QImage texImg = source.convertToFormat(QImage::Format_RGBA8888);
 
-        if (cache->texId)
-            f->glDeleteTextures(1, &cache->texId);
-
-        f->glGenTextures(1, &cache->texId);
-        f->glBindTexture(GL_TEXTURE_2D, cache->texId);
+        cache->texture.create();
+        f->glBindTexture(GL_TEXTURE_2D, cache->texture.id());
         f->glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_RGBA, GL_UNSIGNED_BYTE, texImg.constBits());
         f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -544,11 +687,7 @@ QImage ShaderWidget::renderShader(
         f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
         // Recreate quad geometry
-        if (cache->vao) {
-            f->glDeleteVertexArrays(1, &cache->vao);
-            f->glDeleteBuffers(1, &cache->vbo);
-            f->glDeleteBuffers(1, &cache->ebo);
-        }
+        cache->quad.create();
 
         const float verts[] = {
             -1.0f, -1.0f, 0.0f, 1.0f, 1.0f, -1.0f, 1.0f, 1.0f,
@@ -556,14 +695,10 @@ QImage ShaderWidget::renderShader(
         };
         const unsigned int idxs[] = {0, 1, 2, 0, 2, 3};
 
-        f->glGenVertexArrays(1, &cache->vao);
-        f->glGenBuffers(1, &cache->vbo);
-        f->glGenBuffers(1, &cache->ebo);
-
-        f->glBindVertexArray(cache->vao);
-        f->glBindBuffer(GL_ARRAY_BUFFER, cache->vbo);
+        f->glBindVertexArray(cache->quad.vao());
+        f->glBindBuffer(GL_ARRAY_BUFFER, cache->quad.vbo());
         f->glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-        f->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cache->ebo);
+        f->glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, cache->quad.ebo());
         f->glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(idxs), idxs, GL_STATIC_DRAW);
 
         f->glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * (int) sizeof(float), nullptr);
@@ -602,7 +737,7 @@ QImage ShaderWidget::renderShader(
 
     // u_texture = current capture (unit 0)
     f->glActiveTexture(GL_TEXTURE0);
-    f->glBindTexture(GL_TEXTURE_2D, cache->texId);
+    f->glBindTexture(GL_TEXTURE_2D, cache->texture.id());
     cache->prog->setUniformValue("u_texture", 0);
 
     // u_prevFrame = previous frame output (unit 1)
@@ -614,18 +749,23 @@ QImage ShaderWidget::renderShader(
     cache->prog->setUniformValue("u_resolution", QVector2D(w, h));
     cache->prog->setUniformValue("u_mouse", QVector2D(mousePos.x(), mousePos.y()));
 
-    f->glBindVertexArray(cache->vao);
+    f->glBindVertexArray(cache->quad.vao());
     f->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
-    // Read back
-    QImage result(source.size(), QImage::Format_RGBA8888);
-    f->glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, result.bits());
-    result = result.flipped(Qt::Vertical);
+    // Read back into a cached scratch buffer, then flip into out
+    if (cache->readback.size() != source.size())
+        cache->readback = QImage(source.size(), QImage::Format_RGBA8888);
+    if (out.size() != source.size())
+        out = QImage(source.size(), QImage::Format_RGBA8888);
+    f->glReadPixels(0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, cache->readback.bits());
+    const int stride = cache->readback.bytesPerLine();
+    for (int y = 0; y < h; ++y)
+        memcpy(out.scanLine(h - 1 - y), cache->readback.constScanLine(y), stride);
 
     // Swap FBOs for next frame
     cache->fboWriteIdx = prevIdx;
 
-    return result;
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -684,7 +824,7 @@ void ShaderWidget::applyEdgeCursor(Edge edge) {
 
 void ShaderWidget::mousePressEvent(QMouseEvent *event) {
     if (event->button() == Qt::MiddleButton) {
-        hide();
+        stop();
         emit closed();
         return;
     }
@@ -755,7 +895,7 @@ void ShaderWidget::mouseReleaseEvent(QMouseEvent *event) {
 }
 
 void ShaderWidget::closeEvent(QCloseEvent *event) {
-    m_animTimer->stop();
+    stop();
     emit closed();
     QWidget::closeEvent(event);
 }

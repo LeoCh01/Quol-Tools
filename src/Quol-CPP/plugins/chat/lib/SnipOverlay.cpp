@@ -30,6 +30,7 @@ SnipOverlay::SnipOverlay(const QPixmap &screenshot, std::function<void(const QPi
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
     setCursor(Qt::CrossCursor);
     setWindowOpacity(0.0);
+    setAttribute(Qt::WA_DeleteOnClose);
 
     m_toolbar = new QWidget(this);
     m_toolbar->setObjectName(QStringLiteral("snip-toolbar"));

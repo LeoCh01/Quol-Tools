@@ -13,7 +13,7 @@ A tool to make HTTP requests (mini Postman).
 A tool to grab colors from the screen (RGB/HEX).
 
 **Chat**  
-A tool to chat with an AI assistant on screen (Gemini, Groq, Ollama).
+A tool to chat with an AI assistant on screen (+ OCR text extraction).
 
 **CMD**  
 A tool to manage and execute custom CMD commands.

@@ -5,6 +5,8 @@
 #include <QObject>
 #include <QStringList>
 
+#include <memory>
+
 class QLabel;
 class QPushButton;
 class QSlider;
@@ -12,6 +14,36 @@ class QTimer;
 
 struct ma_engine;
 struct ma_sound;
+
+namespace music {
+
+// RAII owners for the miniaudio C API. Fully defined in this header (they only
+// hold raw pointers, so the incomplete `ma_engine`/`ma_sound` types are fine);
+// the actual init/teardown lives in MusicPlayer.cpp where miniaudio.h is
+// included. Each tracks whether the underlying object was successfully
+// initialized so teardown never calls ma_*_uninit on a struct that failed
+// initialization (which would dereference a null engine).
+struct EngineOwner {
+    explicit EngineOwner();
+    ~EngineOwner();
+
+    bool init();
+
+    ma_engine *engine = nullptr;
+    bool initialized = false;
+};
+
+struct SoundOwner {
+    explicit SoundOwner();
+    ~SoundOwner();
+
+    bool init(ma_engine *engine, const QString &filePath);
+
+    ma_sound *sound = nullptr;
+    bool initialized = false;
+};
+
+}  // namespace music
 
 class MusicPlayer final : public QObject, public IQuolPlugin {
     Q_OBJECT
@@ -47,8 +79,8 @@ private:
     QString m_pluginRootPath;
     PluginConfig m_cfg;
 
-    ma_engine *m_engine = nullptr;
-    ma_sound *m_sound = nullptr;
+    std::unique_ptr<music::EngineOwner> m_engine;
+    std::unique_ptr<music::SoundOwner> m_sound;
 
     QLabel *m_songLabel = nullptr;
     QPushButton *m_prevBtn = nullptr;
