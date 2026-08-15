@@ -3,6 +3,7 @@
     "default_geometry": [910, 10, 190, 0],
     "name": "API",
     "version": 2,
+    "dependency": "5.2.0",
     "description": "Mini Postman — HTTP request tool"
   }
 }

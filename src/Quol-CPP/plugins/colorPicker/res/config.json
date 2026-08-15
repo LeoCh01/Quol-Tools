@@ -3,6 +3,7 @@
     "default_geometry": [200, 10, 150, 0],
     "name": "Color Picker",
     "version": 2,
+    "dependency": "5.2.0",
     "description": "Screen color picker"
   },
   "sample_size": 7

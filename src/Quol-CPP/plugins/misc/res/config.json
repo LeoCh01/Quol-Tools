@@ -3,7 +3,7 @@
     "default_geometry": [200, 310, 150, 0],
     "name": "Misc",
     "version": 4,
-    "dependency": "5.1.0",
+    "dependency": "5.2.0",
     "description": "Miscellaneous tools"
   }
 }

@@ -3,6 +3,7 @@
     "default_geometry": [730, 10, 170, 0],
     "name": "CMD",
     "version": 2,
+    "dependency": "5.2.0",
     "description": "Custom shell command launcher"
   }
 }

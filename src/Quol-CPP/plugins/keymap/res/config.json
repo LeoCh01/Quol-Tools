@@ -3,6 +3,7 @@
     "name": "Keymap",
     "default_geometry": [360, 150, 180, 0],
     "version": 3,
+    "dependency": "5.2.0",
     "description": "Key remapping plugin — map keys to other keys using toggleable profiles."
   }
 }
