@@ -1,9 +1,8 @@
 TODO
-- keymap: del btn in popup
-- chat: OCR fix memory leak
-- misc: shader fix small memory issue
+- add opencode, cli
 
 DONE
+- CLEANUP, new linking, chat OCR fix memory leak, misc shader memory issue
 - chat-v4: OCR
 - keymap-v2: ui fixes
 - chat-v3: more providers, better, provider ui, connect output to toggle key

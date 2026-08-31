@@ -33,7 +33,21 @@ try {
     $decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
     $soft = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
 
-    $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+    $availableLangs = [Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages
+
+    $engine = $null
+    foreach ($lang in $availableLangs) {
+        if ($lang.LanguageTag -match '^zh' -or $lang.LanguageTag -match '^ja' -or $lang.LanguageTag -match '^ko') {
+            $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($lang)
+            if ($engine) { break }
+        }
+    }
+    if (-not $engine) {
+        $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+    }
+    if (-not $engine -and $availableLangs.Count -gt 0) {
+        $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($availableLangs[0])
+    }
     if (-not $engine) {
         [Console]::Error.WriteLine('OCR_ERROR: no OCR engine available')
         exit 1
