@@ -109,7 +109,6 @@ private:
 
     QWidget *m_widget = nullptr;
     QPushButton *m_providerButton = nullptr;
-    QPushButton *m_clearButton = nullptr;
     QLineEdit *m_promptEdit = nullptr;
     QPushButton *m_includeImageButton = nullptr;
     QPushButton *m_snipButton = nullptr;

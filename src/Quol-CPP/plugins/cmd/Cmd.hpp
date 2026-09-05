@@ -7,15 +7,13 @@
 #include <QString>
 #include <QVector>
 
-class QPlainTextEdit;
-class QProcess;
 class QVBoxLayout;
 class QWidget;
-class QuolPopupWindow;
 
 struct CommandEntry {
     QString name;
     QString command;
+    QString workingDir;
     bool showOutput = false;
 };
 
@@ -35,7 +33,6 @@ private:
     void addCommand(const CommandEntry &entry);
     void deleteCommand(int index);
     void runCommand(int index);
-    void showOutput(const QString &text);
     void rebuildUi();
 
     void saveCommands();
@@ -49,9 +46,4 @@ private:
     QWidget *m_widget = nullptr;
     QVBoxLayout *m_commandsLayout = nullptr;
     QVector<CommandEntry> m_commands;
-    QWidget *m_commandsContainer = nullptr;
-
-    QProcess *m_currentProcess = nullptr;
-    QuolPopupWindow *m_outputWindow = nullptr;
-    QPlainTextEdit *m_outputBrowser = nullptr;
 };

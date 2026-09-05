@@ -37,8 +37,8 @@
 #include <QTextDocument>
 #include <QTimer>
 #include <QUrl>
-#include <QVariant>
 #include <QVBoxLayout>
+#include <QVariant>
 #include <QWidget>
 
 namespace {
@@ -59,8 +59,9 @@ QString markdownToHtmlFragment(const QString &markdown) {
     return html.mid(start + 1, end - start - 1).trimmed();
 }
 
-QString messageHtml(const QString &role, const QString &text, bool hasImage, bool pending = false,
-                    int messageIndex = -1) {
+QString messageHtml(
+    const QString &role, const QString &text, bool hasImage, bool pending = false, int messageIndex = -1
+) {
     const bool isModel = (role == QStringLiteral("model"));
     const QString align = isModel ? QStringLiteral("left") : QStringLiteral("right");
     const QString cls = (isModel ? QStringLiteral("ai-block") : QStringLiteral("user-block"))
@@ -91,7 +92,6 @@ QWidget *Chat::createWidget(QWidget *parent) {
     layout->setContentsMargins(0, 0, 0, 0);
 
     m_providerButton = new QPushButton(m_widget);
-    m_clearButton = new QPushButton(m_widget);
     m_promptEdit = new QLineEdit(m_widget);
     m_includeImageButton = new QPushButton(m_widget);
     m_snipButton = new QPushButton(m_widget);
@@ -101,26 +101,22 @@ QWidget *Chat::createWidget(QWidget *parent) {
     const QSize iconSize(18, 18);
 
     m_providerButton->setIconSize(iconSize);
-    m_clearButton->setIconSize(iconSize);
     m_includeImageButton->setIconSize(iconSize);
     m_snipButton->setIconSize(iconSize);
     m_extractButton->setIconSize(iconSize);
 
     m_providerButton->setToolTip(QStringLiteral("Select provider / model"));
-    m_clearButton->setToolTip(QStringLiteral("Clear message"));
     m_includeImageButton->setToolTip(QStringLiteral("Include screenshot"));
     m_snipButton->setToolTip(QStringLiteral("Snip mode"));
     m_extractButton->setToolTip(QStringLiteral("Extract text from screen"));
 
     layout->addWidget(m_providerButton);
-    layout->addWidget(m_clearButton);
     layout->addWidget(m_promptEdit, 1);
     layout->addWidget(m_includeImageButton);
     layout->addWidget(m_snipButton);
     layout->addWidget(m_extractButton);
 
     QObject::connect(m_providerButton, &QPushButton::clicked, this, &Chat::showProviderSelector);
-    QObject::connect(m_clearButton, &QPushButton::clicked, this, &Chat::clearMessage);
     QObject::connect(m_includeImageButton, &QPushButton::clicked, this, [this]() {
         m_includeImage = m_includeImageButton->isChecked();
         updateIncludeImageUi();
@@ -216,8 +212,6 @@ void Chat::applyButtonIcons() {
 
     if (m_providerButton)
         m_providerButton->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/cycle.svg")));
-    if (m_clearButton)
-        m_clearButton->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/clear.svg")));
     if (m_includeImageButton)
         m_includeImageButton->setIcon(QIcon(m_pluginRootPath + QStringLiteral("/res/img/img.svg")));
     if (m_snipButton)
@@ -562,8 +556,9 @@ void Chat::startExtractMode() {
 
     cancelSnipMode();
 
-    m_snipOverlay = new SnipOverlay(screenshot, [this](const QPixmap &cropped) { onExtractSelected(cropped); },
-                                    QStringLiteral("Extract"));
+    m_snipOverlay = new SnipOverlay(
+        screenshot, [this](const QPixmap &cropped) { onExtractSelected(cropped); }, QStringLiteral("Extract")
+    );
     QObject::connect(m_snipOverlay, &QObject::destroyed, this, [this]() { m_snipOverlay = nullptr; });
     m_snipOverlay->showFullScreen();
     m_snipOverlay->raise();
@@ -591,14 +586,21 @@ void Chat::runOcr(const QString &imagePath) {
 
     m_ocrProcess = new QProcess(this);
     m_ocrProcess->setProgram(QStringLiteral("powershell.exe"));
-    m_ocrProcess->setArguments(QStringList{
-        QStringLiteral("-NoProfile"), QStringLiteral("-NoLogo"), QStringLiteral("-ExecutionPolicy"),
-        QStringLiteral("Bypass"), QStringLiteral("-File"), script, QStringLiteral("-ImagePath"), imagePath,
-    });
-    QObject::connect(m_ocrProcess,
-                     QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-                     this,
-                     &Chat::onOcrFinished);
+    m_ocrProcess->setArguments(
+        QStringList{
+            QStringLiteral("-NoProfile"),
+            QStringLiteral("-NoLogo"),
+            QStringLiteral("-ExecutionPolicy"),
+            QStringLiteral("Bypass"),
+            QStringLiteral("-File"),
+            script,
+            QStringLiteral("-ImagePath"),
+            imagePath,
+        }
+    );
+    QObject::connect(
+        m_ocrProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &Chat::onOcrFinished
+    );
     m_ocrProcess->start();
 }
 
@@ -651,9 +653,7 @@ void Chat::setOutputText(const QString &html) {
     if (!m_pluginRootPath.isEmpty()) {
         const QPixmap copyPix = QIcon(m_pluginRootPath + QStringLiteral("/res/img/copy.svg")).pixmap(16, 16);
         m_outputBrowser->document()->addResource(
-            QTextDocument::ImageResource,
-            QUrl(QStringLiteral("copyicon")),
-            QVariant::fromValue(copyPix)
+            QTextDocument::ImageResource, QUrl(QStringLiteral("copyicon")), QVariant::fromValue(copyPix)
         );
     }
 
@@ -915,8 +915,6 @@ void Chat::setControlsEnabled(bool enabled) {
         m_promptEdit->setEnabled(enabled);
     if (m_providerButton)
         m_providerButton->setEnabled(enabled);
-    if (m_clearButton)
-        m_clearButton->setEnabled(enabled);
     if (m_includeImageButton)
         m_includeImageButton->setEnabled(enabled);
     if (m_snipButton)

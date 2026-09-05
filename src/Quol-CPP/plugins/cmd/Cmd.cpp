@@ -2,19 +2,16 @@
 #include "plugins/cmd/lib/CommandDialog.hpp"
 
 #include <QFile>
-#include <QFontDatabase>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonDocument>
-#include <QJsonValue>
-#include <QPlainTextEdit>
 #include <QProcess>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QWidget>
 
-#include "ui/QuolPopupWindow.hpp"
+#include <qt_windows.h>
 
 QWidget *Cmd::createWidget(QWidget *parent) {
     m_widget = new QWidget(parent);
@@ -27,11 +24,10 @@ QWidget *Cmd::createWidget(QWidget *parent) {
     groupLayout->setContentsMargins(6, 6, 6, 6);
     groupLayout->setSpacing(6);
 
-    m_commandsContainer = new QWidget(group);
-    m_commandsLayout = new QVBoxLayout(m_commandsContainer);
+    m_commandsLayout = new QVBoxLayout();
     m_commandsLayout->setContentsMargins(0, 0, 0, 0);
     m_commandsLayout->setSpacing(4);
-    groupLayout->addWidget(m_commandsContainer);
+    groupLayout->addLayout(m_commandsLayout);
 
     root->addWidget(group);
 
@@ -58,16 +54,6 @@ void Cmd::onUpdateConfig(const PluginConfig &pluginConfig) {
 }
 
 void Cmd::shutdown() {
-    if (m_currentProcess) {
-        m_currentProcess->kill();
-        m_currentProcess->waitForFinished(3000);
-        m_currentProcess->deleteLater();
-        m_currentProcess = nullptr;
-    }
-    if (m_outputWindow) {
-        m_outputWindow->close();
-        m_outputWindow = nullptr;
-    }
 }
 
 void Cmd::openAddDialog() {
@@ -76,6 +62,7 @@ void Cmd::openAddDialog() {
         CommandEntry entry;
         entry.name = dialog->commandName();
         entry.command = dialog->commandText();
+        entry.workingDir = dialog->workingDir();
         entry.showOutput = dialog->showOutput();
         addCommand(entry);
     });
@@ -109,7 +96,7 @@ void Cmd::rebuildUi() {
     for (int i = 0; i < m_commands.size(); ++i) {
         const CommandEntry &entry = m_commands[i];
 
-        auto *row = new QWidget(m_commandsContainer);
+        auto *row = new QWidget(m_widget);
         auto *rowLayout = new QHBoxLayout(row);
         rowLayout->setContentsMargins(0, 0, 0, 0);
         rowLayout->setSpacing(4);
@@ -135,55 +122,31 @@ void Cmd::runCommand(int index) {
 
     const CommandEntry &entry = m_commands[index];
 
-    if (m_currentProcess) {
-        m_currentProcess->kill();
-        m_currentProcess->waitForFinished(3000);
-        m_currentProcess->deleteLater();
-        m_currentProcess = nullptr;
+    if (entry.showOutput) {
+        QString cmd = QStringLiteral("cmd.exe /k ") + entry.command;
+        QByteArray cmdBytes = cmd.toLocal8Bit();
+
+        STARTUPINFOA si = {};
+        si.cb = sizeof(si);
+        PROCESS_INFORMATION pi = {};
+
+        CreateProcessA(
+            nullptr,
+            cmdBytes.data(),
+            nullptr, nullptr, FALSE,
+            CREATE_NEW_CONSOLE,
+            nullptr,
+            entry.workingDir.isEmpty() ? nullptr : entry.workingDir.toLocal8Bit().constData(),
+            &si, &pi
+        );
+        if (pi.hProcess) CloseHandle(pi.hProcess);
+        if (pi.hThread) CloseHandle(pi.hThread);
+    } else {
+        QProcess proc;
+        if (!entry.workingDir.isEmpty())
+            proc.setWorkingDirectory(entry.workingDir);
+        proc.startDetached(QStringLiteral("cmd.exe"), {QStringLiteral("/c"), entry.command});
     }
-
-    m_currentProcess = new QProcess(this);
-    m_currentProcess->setProcessChannelMode(QProcess::MergedChannels);
-
-    QObject::connect(
-        m_currentProcess,
-        QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
-        this,
-        [this, entry](int exitCode, QProcess::ExitStatus) {
-            const QString output = QString::fromLocal8Bit(m_currentProcess->readAllStandardOutput());
-            if (entry.showOutput) {
-                QString text = output;
-                if (exitCode != 0)
-                    text += QStringLiteral("\n\nExit code: %1").arg(exitCode);
-                showOutput(text);
-            }
-            m_currentProcess->deleteLater();
-            m_currentProcess = nullptr;
-        }
-    );
-
-    m_currentProcess->start(QStringLiteral("cmd.exe"), {QStringLiteral("/c"), entry.command});
-}
-
-void Cmd::showOutput(const QString &text) {
-    if (!m_outputWindow) {
-        m_outputWindow = new QuolPopupWindow(QStringLiteral("Command Output"), m_widget);
-        QObject::connect(m_outputWindow, &QObject::destroyed, this, [this]() {
-            m_outputWindow = nullptr;
-            m_outputBrowser = nullptr;
-        });
-        m_outputWindow->resize(600, 400);
-
-        m_outputBrowser = new QPlainTextEdit(m_outputWindow);
-        m_outputBrowser->setReadOnly(true);
-        m_outputBrowser->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-        m_outputWindow->addContent(m_outputBrowser);
-    }
-
-    m_outputBrowser->setPlainText(text);
-    m_outputWindow->show();
-    m_outputWindow->raise();
-    m_outputWindow->activateWindow();
 }
 
 void Cmd::saveCommands() {
@@ -206,7 +169,7 @@ void Cmd::loadCommands() {
 QJsonArray Cmd::serialize() const {
     QJsonArray arr;
     for (const auto &entry : m_commands)
-        arr.append(QJsonArray{entry.name, entry.command, entry.showOutput});
+        arr.append(QJsonArray{entry.name, entry.command, entry.workingDir, entry.showOutput});
     return arr;
 }
 
@@ -217,7 +180,12 @@ void Cmd::deserialize(const QJsonArray &arr) {
             CommandEntry entry;
             entry.name = item.at(0).toString();
             entry.command = item.at(1).toString();
-            entry.showOutput = item.at(2).toBool();
+            if (item.size() >= 4) {
+                entry.workingDir = item.at(2).toString();
+                entry.showOutput = item.at(3).toBool();
+            } else {
+                entry.showOutput = item.at(2).toBool();
+            }
             m_commands.append(entry);
         }
     }

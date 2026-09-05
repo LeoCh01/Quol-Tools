@@ -1,10 +1,11 @@
 TODO
-- add opencode, cli
 
 DONE
+- cmd-v3: open terminal instead of custom window
 - CLEANUP, new linking, chat OCR fix memory leak, misc shader memory issue
 - chat-v4: OCR
 - keymap-v2: ui fixes
 - chat-v3: more providers, better, provider ui, connect output to toggle key
 - musicPlayer-v1: new plugin
-- c++ migration
+
+-- after c++ migration --
