@@ -1,4 +1,5 @@
 #include "plugins/misc/Misc.hpp"
+#include "plugins/misc/lib/AnimeWidget.hpp"
 #include "plugins/misc/lib/DiceWidget.hpp"
 #include "plugins/misc/lib/ShaderWidget.hpp"
 #include "plugins/misc/lib/StopwatchWidget.hpp"
@@ -73,6 +74,17 @@ void Misc::initialize(const QString &pluginRootPath, const PluginConfig &pluginC
         }
     });
     m_tools.append({shader, nullptr});
+
+    auto *anime = new AnimeWidget(pluginRootPath);
+    connect(anime, &AnimeWidget::closed, this, [this, anime]() {
+        for (int i = 0; i < m_tools.size(); ++i) {
+            if (m_tools[i].tool == anime && m_tools[i].btn) {
+                m_tools[i].btn->setChecked(false);
+                break;
+            }
+        }
+    });
+    m_tools.append({anime, nullptr});
 
     if (m_services) {
         m_services->setAppToggledCallback([this](bool on) {

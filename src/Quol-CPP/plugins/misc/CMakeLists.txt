@@ -8,6 +8,8 @@ add_library(misc_plugin MODULE
     lib/DiceWidget.hpp
     lib/ShaderWidget.cpp
     lib/ShaderWidget.hpp
+    lib/AnimeWidget.cpp
+    lib/AnimeWidget.hpp
 )
 
 target_include_directories(misc_plugin PRIVATE
@@ -15,7 +17,7 @@ target_include_directories(misc_plugin PRIVATE
     ${QUOL_HOST_ROOT}
 )
 
-target_link_libraries(misc_plugin PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::OpenGL quol_core)
+target_link_libraries(misc_plugin PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::OpenGL Qt${QT_VERSION_MAJOR}::Network quol_core)
 
 set_target_properties(misc_plugin PROPERTIES
     PREFIX ""
@@ -39,6 +41,9 @@ add_custom_command(TARGET misc_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/res/shaders
         $<TARGET_FILE_DIR:misc_plugin>/res/shaders
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/anime/img
+        $<TARGET_FILE_DIR:misc_plugin>/res/anime/img
     COMMAND ${CMAKE_COMMAND} -E make_directory ${QUOL_RUNTIME_DIR}/plugins/misc/res
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:misc_plugin>
@@ -58,4 +63,7 @@ add_custom_command(TARGET misc_plugin POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_CURRENT_SOURCE_DIR}/res/shaders
         ${QUOL_RUNTIME_DIR}/plugins/misc/res/shaders
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_CURRENT_SOURCE_DIR}/res/anime/img
+        ${QUOL_RUNTIME_DIR}/plugins/misc/res/anime/img
 )

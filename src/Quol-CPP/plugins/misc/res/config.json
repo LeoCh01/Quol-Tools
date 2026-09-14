@@ -1,8 +1,8 @@
 {
   "_": {
-    "default_geometry": [200, 310, 150, 0],
+    "default_geometry": [200, 150, 150, 0],
     "name": "Misc",
-    "version": 4,
+    "version": 5,
     "dependency": "5.2.0",
     "description": "Miscellaneous tools"
   }
