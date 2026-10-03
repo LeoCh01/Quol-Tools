@@ -31,11 +31,14 @@ A tool to record and play back mouse and keyboard actions.
 A tool to manage other custom-windowed tools:
 
 - Stopwatch
-- Dice Roll
-- Shader
+- Dice roll
+- Anime list
 
 **Music Player**  
 A tool to play music.
+
+**Screen**
+A tool to modify and manage the screen images
 
 ## Plugin ZIP layout
 

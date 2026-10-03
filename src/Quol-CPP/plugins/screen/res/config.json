@@ -1,0 +1,10 @@
+{
+  "_": {
+    "default_geometry": [200, 140, 150, 0],
+    "name": "Screen",
+    "version": 1,
+    "dependency": "5.2.0",
+    "description": "Screen shader and snip tools"
+  },
+  "hide_img_on_toggle": false
+}

@@ -9,3 +9,4 @@ scripts/
 CMakeUserPresets.json
 plugin-zip-config.json
 Quol-PY
+_plugins

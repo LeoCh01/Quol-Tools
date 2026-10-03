@@ -1,7 +1,5 @@
 #pragma once
 
-#include "plugins/misc/lib/ToolBase.hpp"
-
 #include <QImage>
 #include <QPainter>
 #include <QPlainTextEdit>
@@ -13,11 +11,8 @@
 #include <QTimer>
 #include <QWidget>
 
-// ---------------------------------------------------------------------------
-// Line-numbered shader editor widget
-// ---------------------------------------------------------------------------
-
 class LineNumberArea;
+class QuolServices;
 
 class ShaderEditor : public QPlainTextEdit {
     Q_OBJECT
@@ -50,21 +45,15 @@ private:
     ShaderEditor *m_editor = nullptr;
 };
 
-// ---------------------------------------------------------------------------
-// Shader tool widget
-// ---------------------------------------------------------------------------
-
-class ShaderWidget final : public QWidget, public ToolBase {
+class ShaderWidget final : public QWidget {
     Q_OBJECT
 
 public:
     explicit ShaderWidget(QWidget *parent = nullptr);
     ~ShaderWidget() override;
 
-    QString label() const override { return QStringLiteral("Shader"); }
-    void start(QuolServices *services) override;
-    void stop() override;
-    QWidget *widget() override;
+    void start(QuolServices *services);
+    void stop();
     void setPluginRootPath(const QString &path) { m_pluginRootPath = path; }
 
 public slots:
@@ -105,17 +94,14 @@ private:
     float m_animTime = 0.0f;
     GLCache *m_gl = nullptr;
 
-    // Drag
     QPoint m_dragOffset;
     bool m_dragging = false;
 
-    // Resize
     Edge m_resizeEdge = Edge::None;
     QRect m_resizeStartGeom;
     QPoint m_resizeStartPos;
     bool m_resizing = false;
 
-    // Settings popup (singleton)
     QWidget *m_settingsPopup = nullptr;
 
     static constexpr int kHandleMargin = 8;

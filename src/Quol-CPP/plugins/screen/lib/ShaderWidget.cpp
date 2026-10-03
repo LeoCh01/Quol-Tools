@@ -1,4 +1,4 @@
-#include "plugins/misc/lib/ShaderWidget.hpp"
+#include "plugins/screen/lib/ShaderWidget.hpp"
 #include "ui/QuolPopupWindow.hpp"
 
 #include <cstring>
@@ -23,11 +23,6 @@
 #include <QVector2D>
 
 #include <memory>
-
-// ---------------------------------------------------------------------------
-// RAII wrappers for raw GL handles. They call glDelete* on the *current*
-// GL context, so they must only be destroyed while a context is current.
-// ---------------------------------------------------------------------------
 
 namespace gl {
 
@@ -99,10 +94,6 @@ private:
 
 }  // namespace gl
 
-// ---------------------------------------------------------------------------
-// Default (passthrough) shader shown when no shader is applied
-// ---------------------------------------------------------------------------
-
 const QString kDefaultShaderSrc = QStringLiteral(
     "#version 330 core\n"
     "in vec2 v_texCoord;\n"
@@ -134,10 +125,6 @@ void setStatusLog(QPlainTextEdit *log, const QString &color, const QString &text
     log->setPlainText(text);
 }
 }  // namespace
-
-// ---------------------------------------------------------------------------
-// ShaderEditor implementation (line-numbered code editor)
-// ---------------------------------------------------------------------------
 
 ShaderEditor::ShaderEditor(QWidget *parent) : QPlainTextEdit(parent) {
     m_lineNumberArea = new LineNumberArea(this);
@@ -203,10 +190,6 @@ void ShaderEditor::lineNumberAreaPaintEvent(QPaintEvent *event) {
     }
 }
 
-// ---------------------------------------------------------------------------
-// LineNumberArea
-// ---------------------------------------------------------------------------
-
 LineNumberArea::LineNumberArea(ShaderEditor *editor) : QWidget(editor), m_editor(editor) {
 }
 
@@ -217,10 +200,6 @@ QSize LineNumberArea::sizeHint() const {
 void LineNumberArea::paintEvent(QPaintEvent *event) {
     m_editor->lineNumberAreaPaintEvent(event);
 }
-
-// ---------------------------------------------------------------------------
-// Cached OpenGL resources for animated shader rendering
-// ---------------------------------------------------------------------------
 
 struct ShaderWidget::GLCache {
     QOpenGLContext *ctx = nullptr;
@@ -309,10 +288,6 @@ void ShaderWidget::releaseGles() {
     delete m_gl->ctx;
     m_gl->ctx = nullptr;
     m_gl->initialized = false;
-}
-
-QWidget *ShaderWidget::widget() {
-    return this;
 }
 
 void ShaderWidget::paintEvent(QPaintEvent *) {
@@ -452,10 +427,6 @@ void ShaderWidget::openSettings() {
     popup->activateWindow();
 }
 
-// ---------------------------------------------------------------------------
-// Background capture
-// ---------------------------------------------------------------------------
-
 void ShaderWidget::captureBackground() {
     const QRect geom = geometry();
     const bool wasVisible = isVisible();
@@ -467,7 +438,6 @@ void ShaderWidget::captureBackground() {
         if (!px.isNull()) {
             m_captureDpr = px.devicePixelRatio();
             m_rawCapture = px.toImage();
-            // Force GL texture re-upload on next render
             if (m_gl) {
                 m_gl->cachedW = 0;
                 m_gl->cachedH = 0;
@@ -507,10 +477,6 @@ void ShaderWidget::onAnimTick() {
     update();
 }
 
-// ---------------------------------------------------------------------------
-// Offscreen GLSL shader rendering (with static cache for animation)
-// ---------------------------------------------------------------------------
-
 static const QString kVertexSrc = QStringLiteral(
     "#version 330 core\n"
     "layout(location = 0) in vec2 a_pos;\n"
@@ -532,7 +498,6 @@ bool ShaderWidget::renderShader(
         return true;
     }
 
-    // First-time GL setup
     if (!cache->initialized) {
         QSurfaceFormat fmt;
         fmt.setVersion(3, 3);
@@ -561,7 +526,6 @@ bool ShaderWidget::renderShader(
 
     auto *f = cache->ctx->extraFunctions();
 
-    // Recompile shader if source changed
     if (fragSrc != cache->cachedFragSrc) {
         cache->prog = std::make_unique<QOpenGLShaderProgram>();
 
@@ -601,7 +565,6 @@ bool ShaderWidget::renderShader(
     const int w = source.width();
     const int h = source.height();
 
-    // Upload texture (or re-upload if dimensions changed)
     if (w != cache->cachedW || h != cache->cachedH) {
         QImage texImg = source.convertToFormat(QImage::Format_RGBA8888);
 
@@ -613,7 +576,6 @@ bool ShaderWidget::renderShader(
         f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         f->glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        // Recreate quad geometry
         cache->quad.create();
 
         const float verts[] = {
@@ -636,7 +598,6 @@ bool ShaderWidget::renderShader(
         );
         f->glEnableVertexAttribArray(1);
 
-        // Resize or create FBOs for ping-pong
         delete cache->fbo[0];
         delete cache->fbo[1];
         cache->fbo[0] = new QOpenGLFramebufferObject(w, h);
@@ -652,7 +613,6 @@ bool ShaderWidget::renderShader(
         cache->cachedH = h;
     }
 
-    // Per-frame render
     int curIdx = cache->fboWriteIdx;
     int prevIdx = 1 - curIdx;
 
@@ -662,12 +622,10 @@ bool ShaderWidget::renderShader(
 
     cache->prog->bind();
 
-    // u_texture = current capture (unit 0)
     f->glActiveTexture(GL_TEXTURE0);
     f->glBindTexture(GL_TEXTURE_2D, cache->texture.id());
     cache->prog->setUniformValue("u_texture", 0);
 
-    // u_prevFrame = previous frame output (unit 1)
     f->glActiveTexture(GL_TEXTURE1);
     f->glBindTexture(GL_TEXTURE_2D, cache->fbo[prevIdx]->texture());
     cache->prog->setUniformValue("u_prevFrame", 1);
@@ -679,7 +637,6 @@ bool ShaderWidget::renderShader(
     f->glBindVertexArray(cache->quad.vao());
     f->glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
-    // Read back into a cached scratch buffer, then flip into out
     if (cache->readback.size() != source.size())
         cache->readback = QImage(source.size(), QImage::Format_RGBA8888);
     if (out.size() != source.size())
@@ -689,15 +646,10 @@ bool ShaderWidget::renderShader(
     for (int y = 0; y < h; ++y)
         memcpy(out.scanLine(h - 1 - y), cache->readback.constScanLine(y), stride);
 
-    // Swap FBOs for next frame
     cache->fboWriteIdx = prevIdx;
 
     return true;
 }
-
-// ---------------------------------------------------------------------------
-// Mouse handling – drag & resize
-// ---------------------------------------------------------------------------
 
 ShaderWidget::Edge ShaderWidget::edgeAtPos(const QPoint &pos) const {
     const QRect r = rect();

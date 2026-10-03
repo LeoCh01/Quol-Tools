@@ -6,7 +6,6 @@
 #include <QString>
 #include <QVector>
 
-class QHBoxLayout;
 class QPushButton;
 class ToolBase;
 
@@ -29,7 +28,6 @@ private:
         QPushButton *btn = nullptr;
     };
 
-    QString m_pluginRootPath;
     PluginConfig m_cfg;
     QWidget *m_widget = nullptr;
     QuolServices *m_services = nullptr;

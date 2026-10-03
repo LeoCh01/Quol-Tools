@@ -1,6 +1,8 @@
 TODO
 
 DONE
+- screen-v1: new plugin
+- misc-v6: move shader to screen plugin
 - misc-v5: recent anime list
 - cmd-v3: open terminal instead of custom window
 - CLEANUP, new linking, chat OCR fix memory leak, misc shader memory issue
