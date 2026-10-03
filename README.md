@@ -37,7 +37,7 @@ A tool to manage other custom-windowed tools:
 **Music Player**  
 A tool to play music.
 
-**Screen**
+**Screen**  
 A tool to modify and manage the screen images
 
 ## Plugin ZIP layout
