@@ -19,12 +19,12 @@ class QNetworkReply;
 class QPixmap;
 class QProcess;
 class QPushButton;
-class QTextBrowser;
 class QTimer;
 class QVBoxLayout;
 
 class SnipOverlay;
 class QuolPopupWindow;
+class ChatOutput;
 
 class Chat final : public QObject, public IQuolPlugin {
     Q_OBJECT
@@ -63,8 +63,7 @@ private:
     void onOcrFinished();
 
     void ensureOutputWindow();
-    void setOutputText(const QString &html);
-    QString buildConversationHtml(const QString &pendingAssistantText = QString()) const;
+    void showOutput();
 
     QString applyCommandTemplate(const QString &rawPrompt) const;
     QPixmap capturePrimaryScreenPixmap() const;
@@ -118,7 +117,7 @@ private:
     QPushButton *m_extractButton = nullptr;
 
     QuolPopupWindow *m_outputWindow = nullptr;
-    QTextBrowser *m_outputBrowser = nullptr;
+    ChatOutput *m_output = nullptr;
     QPointer<SnipOverlay> m_snipOverlay;
     QNetworkAccessManager *m_network = nullptr;
     QNetworkReply *m_reply = nullptr;

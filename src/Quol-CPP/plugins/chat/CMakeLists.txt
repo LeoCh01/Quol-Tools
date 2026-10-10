@@ -3,6 +3,8 @@ add_library(chat_plugin MODULE
     Chat.hpp
     lib/ChatConfig.cpp
     lib/ChatConfig.hpp
+    lib/ChatOutput.cpp
+    lib/ChatOutput.hpp
     lib/SnipOverlay.cpp
     lib/SnipOverlay.hpp
     lib/providers/ProviderTypes.hpp

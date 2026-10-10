@@ -1,6 +1,7 @@
 #include "plugins/chat/Chat.hpp"
 
 #include "plugins/chat/lib/ChatConfig.hpp"
+#include "plugins/chat/lib/ChatOutput.hpp"
 #include "plugins/chat/lib/SnipOverlay.hpp"
 #include "plugins/chat/lib/providers/DeepSeekProvider.hpp"
 #include "plugins/chat/lib/providers/GeminiProvider.hpp"
@@ -33,9 +34,6 @@
 #include <QRegularExpression>
 #include <QScreen>
 #include <QScrollArea>
-#include <QScrollBar>
-#include <QTextBrowser>
-#include <QTextDocument>
 #include <QTimer>
 #include <QUrl>
 #include <QVBoxLayout>
@@ -71,64 +69,6 @@ QString revealKeyButtonStyle(bool revealed) {
                       );
 }
 
-const QString kOutputStyleSheet = QStringLiteral(
-    "body { background:#333; color:white; font-size:13px; letter-spacing:0.2px; line-height:1.4;"
-    "       margin:0; padding:0; font-family:'Segoe UI',sans-serif; }"
-    "table { border-collapse:collapse; margin:0; padding:0; }"
-    ".ai-block { padding:10px 15px; background:#2d2d2d; word-wrap:break-word; white-space:pre-wrap; }"
-    ".user-block { padding:10px 15px; background:#3a3a3a; word-wrap:break-word; white-space:pre-wrap; }"
-    ".pending { opacity:0.75; }"
-    "p { margin:0.3em 0; }"
-    "p:first-child { margin-top:0; }"
-    "p:last-child  { margin-bottom:0; }"
-    "h1,h2,h3,h4 { margin:0.4em 0 0.2em 0; }"
-    "ul,ol { margin:0.3em 0 0.3em 1.4em; }"
-    "li { margin:0.15em 0; }"
-    "pre { background:#262626; line-height:1.3; word-wrap:break-word; white-space:pre-wrap;"
-    "      padding:8px 10px; margin:6px 0; border-radius:4px; font-size:12px; }"
-    "code { background:#262626; padding:1px 4px; border-radius:3px; font-size:12px; }"
-    "pre code { background:transparent; padding:0; }"
-    "blockquote { margin:0.5em 0; padding:4px 10px; border-left:3px solid #888; color:#ccc; }"
-    "a { color:#7ab8f5; }"
-    ".attachment { color:#aaa; font-size:11px; }"
-);
-
-QString markdownToHtmlFragment(const QString &markdown) {
-    const auto escaped = [&markdown]() {
-        return markdown.toHtmlEscaped().replace(QStringLiteral("\n"), QStringLiteral("<br/>"));
-    };
-
-    QTextDocument doc;
-    doc.setMarkdown(markdown);
-
-    const QString html = doc.toHtml();
-    const int bodyStart = html.indexOf(QStringLiteral("<body"));
-    if (bodyStart < 0)
-        return escaped();
-
-    const int start = html.indexOf('>', bodyStart);
-    const int end = html.lastIndexOf(QStringLiteral("</body>"));
-    if (start < 0 || end <= start)
-        return escaped();
-
-    return html.mid(start + 1, end - start - 1).trimmed();
-}
-
-QString messageHtml(const QString &role, const QString &text, bool hasImage, bool pending = false) {
-    const bool isModel = (role == QStringLiteral("model"));
-    const QString align = isModel ? QStringLiteral("left") : QStringLiteral("right");
-    const QString cls = (isModel ? QStringLiteral("ai-block") : QStringLiteral("user-block"))
-                        + (pending ? QStringLiteral(" pending") : QString());
-    const QString attach = hasImage ? QStringLiteral("<div class='attachment'>Screenshot attached</div>") : QString();
-    const QString content = markdownToHtmlFragment(text);
-
-    return QStringLiteral(
-               "<table width='100%'><tr>"
-               "<td align='%1' class='%2'><div>%3%4</div></td>"
-               "</tr></table>"
-    )
-        .arg(align, cls, attach, content);
-}
 }  // namespace
 
 QWidget *Chat::createWidget(QWidget *parent) {
@@ -178,13 +118,9 @@ QWidget *Chat::createWidget(QWidget *parent) {
     m_loadingTimer = new QTimer(this);
     m_loadingTimer->setInterval(100);
     QObject::connect(m_loadingTimer, &QTimer::timeout, this, [this]() {
-        if (m_outputBrowser) {
+        if (m_output) {
             const double elapsed = m_requestTimer.elapsed() / 1000.0;
-            m_outputBrowser->setHtml(
-                buildConversationHtml(QStringLiteral("Loading... (%1 s)").arg(elapsed, 0, 'f', 1))
-            );
-            auto *sb = m_outputBrowser->verticalScrollBar();
-            sb->setValue(sb->maximum());
+            m_output->setPending(QStringLiteral("Loading... (%1 s)").arg(elapsed, 0, 'f', 1));
         }
     });
 
@@ -492,6 +428,9 @@ void Chat::clearMessage() {
 
     m_history.clear();
 
+    if (m_output)
+        m_output->clear();
+
     if (m_outputWindow)
         m_outputWindow->close();
 }
@@ -563,7 +502,9 @@ void Chat::submitPrompt(bool useExistingSnipImage) {
     setControlsEnabled(false);
     m_requestTimer.start();
     m_loadingTimer->start();
-    setOutputText(buildConversationHtml(QStringLiteral("Loading... (0.0 s)")));
+    showOutput();
+    m_output->addMessage(QStringLiteral("user"), prompt, !imageBase64.isEmpty());
+    m_output->setPending(QStringLiteral("Loading... (0.0 s)"));
 
     sendJsonRequest(buildRequest(m_endpointIndex, messages));
 
@@ -671,42 +612,23 @@ void Chat::ensureOutputWindow() {
     m_outputWindow = new QuolPopupWindow(QStringLiteral("Chat Output"), m_widget);
     QObject::connect(m_outputWindow, &QObject::destroyed, this, [this]() {
         m_outputWindow = nullptr;
-        m_outputBrowser = nullptr;
+        m_output = nullptr;
         m_history.clear();
     });
-    m_outputWindow->resize(500, 600);
+    m_outputWindow->resize(520, 640);
 
-    m_outputBrowser = new QTextBrowser(m_outputWindow);
-    m_outputBrowser->setOpenExternalLinks(true);
-    m_outputBrowser->document()->setDocumentMargin(0);
-    m_outputBrowser->document()->setDefaultStyleSheet(kOutputStyleSheet);
-    m_outputWindow->addContent(m_outputBrowser);
+    m_output = new ChatOutput(m_outputWindow);
+    m_outputWindow->addContent(m_output);
 }
 
-void Chat::setOutputText(const QString &html) {
+void Chat::showOutput() {
     ensureOutputWindow();
-    if (!m_outputWindow || !m_outputBrowser)
+    if (!m_outputWindow)
         return;
-
-    m_outputBrowser->setHtml(html);
 
     m_outputWindow->show();
     m_outputWindow->raise();
     m_outputWindow->activateWindow();
-    auto *sb = m_outputBrowser->verticalScrollBar();
-    sb->setValue(sb->maximum());
-}
-
-QString Chat::buildConversationHtml(const QString &pendingAssistantText) const {
-    QString html;
-
-    for (const auto &item : m_history)
-        html += messageHtml(item.role, item.text, !item.imageBase64.isEmpty());
-
-    if (!pendingAssistantText.isEmpty())
-        html += messageHtml(QStringLiteral("model"), pendingAssistantText, false, true);
-
-    return html;
 }
 
 QString Chat::applyCommandTemplate(const QString &rawPrompt) const {
@@ -829,7 +751,8 @@ void Chat::onRequestFinished() {
     reply->deleteLater();
 
     if (reply->error() != QNetworkReply::NoError) {
-        setOutputText(buildConversationHtml(QStringLiteral("Error: ") + reply->errorString()));
+        if (m_output)
+            m_output->setPending(QStringLiteral("Error: ") + reply->errorString(), true);
         setControlsEnabled(true);
         return;
     }
@@ -858,7 +781,10 @@ void Chat::onRequestFinished() {
 
     addHistory(QStringLiteral("model"), answer);
     appendLog(m_pendingProvider, false, answer);
-    setOutputText(buildConversationHtml());
+    if (m_output) {
+        m_output->setPending(QString());
+        m_output->addMessage(QStringLiteral("model"), answer);
+    }
     setControlsEnabled(true);
 }
 
