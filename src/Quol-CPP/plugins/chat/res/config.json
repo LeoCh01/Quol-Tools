@@ -9,11 +9,11 @@
     "endpoint_index": 0,
     "endpoints": [
       {
-        "model": "qwen/qwen3.6-27b",
+        "model": "qwen/qwen3.8-27b",
         "apikey": ""
       },
       {
-        "model": "gemini-2.5-flash",
+        "model": "gemini-3.5-flash-lite",
         "apikey": ""
       },
       {

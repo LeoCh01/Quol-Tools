@@ -4,13 +4,7 @@
 
 namespace chat::providers::openai {
 
-ProviderRequest buildRequest(
-    const ProviderConfig &config,
-    const QVector<HistoryItem> &history,
-    const QString &prompt,
-    const QString &imageBase64,
-    bool includeHistory
-);
+ProviderRequest buildRequest(const ProviderConfig &config, const QVector<HistoryItem> &messages);
 
 QString parseResponse(const QJsonObject &response);
 

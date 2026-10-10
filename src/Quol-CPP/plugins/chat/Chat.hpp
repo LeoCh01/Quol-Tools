@@ -5,14 +5,17 @@
 
 #include <QElapsedTimer>
 #include <QEvent>
+#include <QJsonObject>
 #include <QMap>
-#include <QNetworkReply>
 #include <QObject>
+#include <QPointer>
 #include <QStringList>
 #include <QVector>
+#include <functional>
 
 class QLineEdit;
 class QNetworkAccessManager;
+class QNetworkReply;
 class QPixmap;
 class QProcess;
 class QPushButton;
@@ -39,8 +42,10 @@ public:
 
 private:
     using HistoryItem = chat::providers::HistoryItem;
+    using ParseResponse = QString (*)(const QJsonObject &response);
 
     void applyConfig();
+    void migrateLegacyKeys();
     void applyButtonIcons();
     void showProviderSelector();
     void clearMessage();
@@ -49,14 +54,13 @@ private:
 
     void startSnipMode();
     void cancelSnipMode();
+    void startOverlay(const QString &buttonLabel, std::function<void(const QPixmap &)> onSelected);
     void onSnipSelected(const QPixmap &cropped);
 
     void startExtractMode();
     void onExtractSelected(const QPixmap &cropped);
     void runOcr(const QString &imagePath);
     void onOcrFinished();
-
-    void copyOutput(int messageIndex);
 
     void ensureOutputWindow();
     void setOutputText(const QString &html);
@@ -66,10 +70,11 @@ private:
     QPixmap capturePrimaryScreenPixmap() const;
     static QString pixmapToBase64Png(const QPixmap &pixmap);
 
-    void dispatchProviderRequest(int endpointIndex, const QString &prompt, const QString &imageBase64);
+    chat::providers::ProviderRequest buildRequest(
+        int endpointIndex, const QVector<HistoryItem> &messages
+    );
     void sendJsonRequest(const chat::providers::ProviderRequest &request);
     void onRequestFinished();
-    void onRequestError(QNetworkReply::NetworkError code);
 
     void addHistory(const QString &role, const QString &text, const QString &imageBase64 = QString());
     void trimHistory();
@@ -79,9 +84,6 @@ private:
 
     void writeProviderConfig();
     void rebuildProviderRows();
-
-    // hardcoded provider type for each endpoint index
-    static QString providerTypeForIndex(int index);
 
     QString m_pluginRootPath;
     PluginConfig m_cfg;
@@ -102,6 +104,7 @@ private:
 
     QVector<HistoryItem> m_history;
     QString m_pendingProvider;
+    ParseResponse m_pendingParse = nullptr;
     QString m_pendingSnipImageBase64;
 
     QuolPopupWindow *m_providerPopup = nullptr;
@@ -116,7 +119,7 @@ private:
 
     QuolPopupWindow *m_outputWindow = nullptr;
     QTextBrowser *m_outputBrowser = nullptr;
-    SnipOverlay *m_snipOverlay = nullptr;
+    QPointer<SnipOverlay> m_snipOverlay;
     QNetworkAccessManager *m_network = nullptr;
     QNetworkReply *m_reply = nullptr;
     QTimer *m_loadingTimer = nullptr;

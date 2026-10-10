@@ -33,32 +33,28 @@ set_target_properties(chat_plugin PROPERTIES
     AUTOMOC_COMPILER_PREDEFINES OFF
 )
 
+function(chat_stage_res res_dir)
+    add_custom_command(TARGET chat_plugin POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${res_dir}/res/img
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${res_dir}/res/ocr
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${res_dir}/res/logs
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/res/config.json
+            ${res_dir}/res/config.json
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/res/img
+            ${res_dir}/res/img
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/res/ocr/ocr.ps1
+            ${res_dir}/res/ocr/ocr.ps1
+    )
+endfunction()
+
 add_custom_command(TARGET chat_plugin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:chat_plugin>/res/img
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:chat_plugin>/res/ocr
-    COMMAND ${CMAKE_COMMAND} -E make_directory $<TARGET_FILE_DIR:chat_plugin>/res/logs
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/res/config.json
-        $<TARGET_FILE_DIR:chat_plugin>/res/config.json
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/res/img
-        $<TARGET_FILE_DIR:chat_plugin>/res/img
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/res/ocr/ocr.ps1
-        $<TARGET_FILE_DIR:chat_plugin>/res/ocr/ocr.ps1
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${QUOL_RUNTIME_DIR}/plugins/chat/res/img
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${QUOL_RUNTIME_DIR}/plugins/chat/res/ocr
-    COMMAND ${CMAKE_COMMAND} -E make_directory ${QUOL_RUNTIME_DIR}/plugins/chat/res/logs
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:chat_plugin>
         ${QUOL_RUNTIME_DIR}/plugins/chat/$<TARGET_FILE_NAME:chat_plugin>
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/res/config.json
-        ${QUOL_RUNTIME_DIR}/plugins/chat/res/config.json
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-        ${CMAKE_CURRENT_SOURCE_DIR}/res/img
-        ${QUOL_RUNTIME_DIR}/plugins/chat/res/img
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${CMAKE_CURRENT_SOURCE_DIR}/res/ocr/ocr.ps1
-        ${QUOL_RUNTIME_DIR}/plugins/chat/res/ocr/ocr.ps1
 )
+
+chat_stage_res($<TARGET_FILE_DIR:chat_plugin>)
+chat_stage_res(${QUOL_RUNTIME_DIR}/plugins/chat)

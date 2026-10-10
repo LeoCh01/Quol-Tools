@@ -113,7 +113,6 @@ void SnipOverlay::mousePressEvent(QMouseEvent *event) {
 
     m_isSelecting = true;
     m_startPoint = event->position().toPoint();
-    m_endPoint = m_startPoint;
     m_selectionRect = {};
     m_toolbar->hide();
     update();
@@ -123,8 +122,7 @@ void SnipOverlay::mouseMoveEvent(QMouseEvent *event) {
     if (!m_isSelecting)
         return;
 
-    m_endPoint = event->position().toPoint();
-    m_selectionRect = QRect(m_startPoint, m_endPoint).normalized().intersected(rect());
+    m_selectionRect = QRect(m_startPoint, event->position().toPoint()).normalized().intersected(rect());
     update();
 }
 
@@ -133,8 +131,7 @@ void SnipOverlay::mouseReleaseEvent(QMouseEvent *event) {
         return;
 
     m_isSelecting = false;
-    m_endPoint = event->position().toPoint();
-    m_selectionRect = QRect(m_startPoint, m_endPoint).normalized().intersected(rect());
+    m_selectionRect = QRect(m_startPoint, event->position().toPoint()).normalized().intersected(rect());
 
     if (m_selectionRect.width() < 8 || m_selectionRect.height() < 8) {
         m_selectionRect = {};

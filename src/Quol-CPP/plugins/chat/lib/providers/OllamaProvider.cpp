@@ -4,16 +4,7 @@
 
 namespace chat::providers::ollama {
 
-ProviderRequest buildRequest(
-    const ProviderConfig &config,
-    const QVector<HistoryItem> &history,
-    const QString &prompt,
-    const QString &imageBase64,
-    bool includeHistory
-) {
-    Q_UNUSED(history)
-    Q_UNUSED(includeHistory)
-
+ProviderRequest buildRequest(const ProviderConfig &config, const QVector<HistoryItem> &messages) {
     ProviderRequest req;
     req.providerName = QStringLiteral("ollama");
     req.url = QUrl(QStringLiteral("http://localhost:11434/api/chat"));
@@ -21,18 +12,21 @@ ProviderRequest buildRequest(
     req.payload.insert(QStringLiteral("model"), config.model);
     req.payload.insert(QStringLiteral("stream"), false);
 
-    QJsonObject user;
-    user.insert(QStringLiteral("role"), QStringLiteral("user"));
-    user.insert(QStringLiteral("content"), prompt);
-    if (!imageBase64.isEmpty()) {
-        QJsonArray images;
-        images.append(imageBase64);
-        user.insert(QStringLiteral("images"), images);
+    QJsonArray out;
+    for (const auto &item : messages) {
+        QJsonObject message;
+        message.insert(QStringLiteral("role"), item.role == QStringLiteral("model") ? QStringLiteral("assistant")
+                                                                                    : QStringLiteral("user"));
+        message.insert(QStringLiteral("content"), item.text);
+        if (!item.imageBase64.isEmpty()) {
+            QJsonArray images;
+            images.append(item.imageBase64);
+            message.insert(QStringLiteral("images"), images);
+        }
+        out.append(message);
     }
 
-    QJsonArray messages;
-    messages.append(user);
-    req.payload.insert(QStringLiteral("messages"), messages);
+    req.payload.insert(QStringLiteral("messages"), out);
     return req;
 }
 

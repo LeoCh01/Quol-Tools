@@ -40,7 +40,6 @@ private:
     std::function<void(const QPixmap &)> m_onSend;
 
     QPoint m_startPoint;
-    QPoint m_endPoint;
     QRect m_selectionRect;
     bool m_isSelecting = false;
 

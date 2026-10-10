@@ -4,13 +4,7 @@
 
 namespace chat::providers::gemini {
 
-ProviderRequest buildRequest(
-    const ProviderConfig &config,
-    const QVector<HistoryItem> &history,
-    const QString &prompt,
-    const QString &imageBase64,
-    bool includeHistory
-) {
+ProviderRequest buildRequest(const ProviderConfig &config, const QVector<HistoryItem> &messages) {
     ProviderRequest req;
     req.providerName = QStringLiteral("gemini");
     req.url = QUrl(
@@ -19,48 +13,26 @@ ProviderRequest buildRequest(
     );
 
     QJsonArray contents;
-
-    if (includeHistory) {
-        for (const auto &item : history) {
-            QJsonObject c;
-            c.insert(
-                QStringLiteral("role"),
-                item.role == QStringLiteral("model") ? QStringLiteral("model") : QStringLiteral("user")
+    for (const auto &item : messages) {
+        QJsonArray parts;
+        parts.append(QJsonObject{{"text", item.text}});
+        if (!item.imageBase64.isEmpty()) {
+            parts.append(
+                QJsonObject{
+                    {"inline_data",
+                     QJsonObject{
+                         {"mime_type", QStringLiteral("image/png")}, {"data", item.imageBase64}
+                     }}
+                }
             );
-            QJsonArray parts;
-            parts.append(QJsonObject{{QStringLiteral("text"), item.text}});
-            if (!item.imageBase64.isEmpty()) {
-                parts.append(
-                    QJsonObject{
-                        {QStringLiteral("inline_data"),
-                         QJsonObject{
-                             {QStringLiteral("mime_type"), QStringLiteral("image/png")},
-                             {QStringLiteral("data"), item.imageBase64}
-                         }}
-                    }
-                );
-            }
-            c.insert(QStringLiteral("parts"), parts);
-            contents.append(c);
         }
-    }
 
-    QJsonObject cur;
-    cur.insert(QStringLiteral("role"), QStringLiteral("user"));
-    QJsonArray parts;
-    parts.append(QJsonObject{{QStringLiteral("text"), prompt}});
-    if (!imageBase64.isEmpty()) {
-        parts.append(
-            QJsonObject{
-                {QStringLiteral("inline_data"),
-                 QJsonObject{
-                     {QStringLiteral("mime_type"), QStringLiteral("image/png")}, {QStringLiteral("data"), imageBase64}
-                 }}
-            }
-        );
+        QJsonObject content;
+        content.insert(QStringLiteral("role"), item.role == QStringLiteral("model") ? QStringLiteral("model")
+                                                                                   : QStringLiteral("user"));
+        content.insert(QStringLiteral("parts"), parts);
+        contents.append(content);
     }
-    cur.insert(QStringLiteral("parts"), parts);
-    contents.append(cur);
 
     req.payload.insert(QStringLiteral("contents"), contents);
     return req;

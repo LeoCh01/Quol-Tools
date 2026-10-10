@@ -4,13 +4,7 @@
 
 namespace chat::providers::deepseek {
 
-ProviderRequest buildRequest(
-    const ProviderConfig &config,
-    const QVector<HistoryItem> &history,
-    const QString &prompt,
-    const QString &imageBase64,
-    bool includeHistory
-) {
+ProviderRequest buildRequest(const ProviderConfig &config, const QVector<HistoryItem> &messages) {
     ProviderRequest req;
     req.providerName = QStringLiteral("deepseek");
     req.url = QUrl(QStringLiteral("https://api.deepseek.com/v1/chat/completions"));
@@ -19,42 +13,27 @@ ProviderRequest buildRequest(
     req.payload.insert("model", config.model);
     req.payload.insert("stream", false);
 
-    QJsonArray messages;
-
-    if (includeHistory) {
-        for (const auto &item : history) {
-            if (item.role == "model") {
-                messages.append(QJsonObject{{"role", "assistant"}, {"content", item.text}});
-            } else {
-                QJsonArray content;
-                content.append(QJsonObject{{"type", "text"}, {"text", item.text}});
-                if (!item.imageBase64.isEmpty()) {
-                    content.append(
-                        QJsonObject{
-                            {"type", "image_url"},
-                            {"image_url",
-                             QJsonObject{{"url", QString("data:image/png;base64,%1").arg(item.imageBase64)}}}
-                        }
-                    );
-                }
-                messages.append(QJsonObject{{"role", "user"}, {"content", content}});
-            }
+    QJsonArray out;
+    for (const auto &item : messages) {
+        if (item.role == "model") {
+            out.append(QJsonObject{{"role", "assistant"}, {"content", item.text}});
+            continue;
         }
+
+        QJsonArray content;
+        content.append(QJsonObject{{"type", "text"}, {"text", item.text}});
+        if (!item.imageBase64.isEmpty()) {
+            content.append(
+                QJsonObject{
+                    {"type", "image_url"},
+                    {"image_url", QJsonObject{{"url", QString("data:image/png;base64,%1").arg(item.imageBase64)}}}
+                }
+            );
+        }
+        out.append(QJsonObject{{"role", "user"}, {"content", content}});
     }
 
-    QJsonArray cur;
-    cur.append(QJsonObject{{"type", "text"}, {"text", prompt}});
-    if (!imageBase64.isEmpty()) {
-        cur.append(
-            QJsonObject{
-                {"type", "image_url"},
-                {"image_url", QJsonObject{{"url", QString("data:image/png;base64,%1").arg(imageBase64)}}}
-            }
-        );
-    }
-    messages.append(QJsonObject{{"role", "user"}, {"content", cur}});
-
-    req.payload.insert("messages", messages);
+    req.payload.insert("messages", out);
     return req;
 }
 
