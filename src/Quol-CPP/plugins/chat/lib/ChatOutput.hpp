@@ -27,6 +27,7 @@ private:
         QString language;
         QString body;
         bool isCode = false;
+        bool isMath = false;
     };
 
     struct Bubble {
@@ -36,10 +37,12 @@ private:
     };
 
     static QVector<Segment> splitMarkdown(const QString &markdown);
+    static QVector<Segment> splitDisplayMath(const QString &text);
 
     Bubble createBubble(bool isUser);
     void appendBlock(QVBoxLayout *content, const Segment &segment);
     QWidget *createCodeBlock(const QString &language, const QString &code);
+    QWidget *createMathBlock(const QString &source);
     QWidget *createTextBlock(const QString &markdown);
     QWidget *createPendingBubble(bool isError);
 

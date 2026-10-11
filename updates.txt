@@ -1,7 +1,7 @@
 TODO
-better chat output
 
 DONE
+- chat-v6: better output md, latex, code cleanup
 - screen-v1: new plugin
 - misc-v6: move shader to screen plugin
 - misc-v5: recent anime list

@@ -751,8 +751,10 @@ void Chat::onRequestFinished() {
     reply->deleteLater();
 
     if (reply->error() != QNetworkReply::NoError) {
+        const QString message = QStringLiteral("Error: ") + reply->errorString();
         if (m_output)
-            m_output->setPending(QStringLiteral("Error: ") + reply->errorString(), true);
+            m_output->setPending(message, true);
+        appendLog(m_pendingProvider, false, message);
         setControlsEnabled(true);
         return;
     }
@@ -814,7 +816,7 @@ void Chat::appendLog(const QString &provider, bool isUser, const QString &text) 
     if (isUser)
         f.write(QStringLiteral("%1\nQ: %2\n").arg(ts, text).toUtf8());
     else
-        f.write(QStringLiteral("A: %1\n\n").arg(ts, text).toUtf8());
+        f.write(QStringLiteral("%1\nA: %2\n\n").arg(ts, text).toUtf8());
     f.close();
 }
 

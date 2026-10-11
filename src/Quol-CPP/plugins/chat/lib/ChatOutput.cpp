@@ -1,5 +1,7 @@
 #include "plugins/chat/lib/ChatOutput.hpp"
 
+#include "plugins/chat/lib/LatexRenderer.hpp"
+
 #include <QClipboard>
 #include <QFontDatabase>
 #include <QFrame>
@@ -52,8 +54,11 @@ const char *kMarkdownSheet =
     "hr { color:#32343d; min-height:1px; }";
 
 QString markdownToHtml(const QString &markdown) {
+    QString source = markdown;
+    source.replace(QRegularExpression(QStringLiteral("\n")), QStringLiteral("  \n"));
+
     QTextDocument doc;
-    doc.setMarkdown(markdown);
+    doc.setMarkdown(source);
     const QString html = doc.toHtml();
 
     const int bodyStart = html.indexOf(QStringLiteral("<body"));
@@ -69,10 +74,14 @@ QString markdownToHtml(const QString &markdown) {
 }
 
 QString pendingStyle(bool isError) {
-    return isError ? QStringLiteral("QLabel#pending { background:#3a1f22; border:1px solid #7f3038;"
-                                    " border-radius:12px; color:#ffb4b4; font-size:13px; padding:11px 14px; }")
-                   : QStringLiteral("QLabel#pending { background:#22232a; border:1px solid #32343d;"
-                                    " border-radius:12px; color:#9a9eab; font-size:13px; padding:11px 14px; }");
+    return isError ? QStringLiteral(
+                         "QLabel#pending { background:#3a1f22; border:1px solid #7f3038;"
+                         " border-radius:12px; color:#ffb4b4; font-size:13px; padding:11px 14px; }"
+                     )
+                   : QStringLiteral(
+                         "QLabel#pending { background:#22232a; border:1px solid #32343d;"
+                         " border-radius:12px; color:#9a9eab; font-size:13px; padding:11px 14px; }"
+                     );
 }
 
 }  // namespace
@@ -132,15 +141,38 @@ QVector<ChatOutput::Segment> ChatOutput::splitMarkdown(const QString &markdown) 
 
         const QString rest = tail.mid(open + 3);
         const int newline = rest.indexOf('\n');
-        segments.append({newline < 0 ? QString() : rest.left(newline).trimmed(),
-                         newline < 0 ? rest : rest.mid(newline + 1),
-                         true});
+        segments.append(
+            {newline < 0 ? QString() : rest.left(newline).trimmed(), newline < 0 ? rest : rest.mid(newline + 1), true}
+        );
     }
 
     segments.removeIf([](const Segment &s) { return !s.isCode && s.body.isEmpty(); });
     return segments;
 }
 
+QVector<ChatOutput::Segment> ChatOutput::splitDisplayMath(const QString &text) {
+    static const QRegularExpression display(
+        QStringLiteral("(?<!\\$)\\$\\$(.+?)\\$\\$"), QRegularExpression::DotMatchesEverythingOption
+    );
+
+    QVector<Segment> segments;
+    int cursor = 0;
+
+    for (auto it = display.globalMatch(text); it.hasNext();) {
+        const QRegularExpressionMatch match = it.next();
+        if (match.capturedStart() > cursor) {
+            segments.append({QString(), text.mid(cursor, match.capturedStart() - cursor).trimmed(), false, false});
+        }
+        segments.append({QString(), match.captured(1).trimmed(), false, true});
+        cursor = match.capturedEnd();
+    }
+
+    const QString tail = text.mid(cursor).trimmed();
+    if (!tail.isEmpty())
+        segments.append({QString(), tail, false, false});
+
+    return segments;
+}
 ChatOutput::Bubble ChatOutput::createBubble(bool isUser) {
     auto *frame = new QFrame;
     frame->setObjectName(isUser ? QStringLiteral("userMessage") : QStringLiteral("modelMessage"));
@@ -172,6 +204,26 @@ void ChatOutput::appendBlock(QVBoxLayout *content, const Segment &segment) {
     );
 }
 
+QWidget *ChatOutput::createMathBlock(const QString &source) {
+    auto *card = new QFrame;
+    card->setObjectName(QStringLiteral("mathBlock"));
+    card->setStyleSheet("QFrame#mathBlock { background:#141519; border:1px solid #2f323b; border-radius:10px; }");
+
+    auto *layout = new QVBoxLayout(card);
+    layout->setContentsMargins(14, 12, 14, 12);
+
+    auto *label = new QLabel(card);
+    label->setWordWrap(true);
+    label->setTextFormat(Qt::RichText);
+    label->setTextInteractionFlags(Qt::TextBrowserInteraction);
+    label->setAlignment(Qt::AlignCenter);
+    label->setStyleSheet("QLabel { background:transparent; color:#dfe2ea; font-size:15px; }");
+    label->setText(latex::renderToHtml(source, true));
+
+    layout->addWidget(label);
+    return card;
+}
+
 QWidget *ChatOutput::createTextBlock(const QString &markdown) {
     // QLabel implements heightForWidth, so the bubble hugs short text and wraps
     // long text at the bubble's clamped width
@@ -184,7 +236,7 @@ QWidget *ChatOutput::createTextBlock(const QString &markdown) {
     // QLabel paints a palette background unless told otherwise
     label->setStyleSheet("QLabel { background:transparent; }");
     label->setText(QStringLiteral("<html><head><style>%1</style></head><body>%2</body></html>")
-                       .arg(QString::fromLatin1(kMarkdownSheet), markdownToHtml(markdown)));
+                       .arg(QString::fromLatin1(kMarkdownSheet), latex::renderMathInHtml(markdownToHtml(markdown))));
     return label;
 }
 
@@ -272,12 +324,20 @@ void ChatOutput::addMessage(const QString &role, const QString &text, bool hasIm
         bubble.content->addWidget(attachment);
     }
 
-    const QVector<Segment> segments = splitMarkdown(text);
-    if (segments.isEmpty())
-        bubble.content->addWidget(createTextBlock(text));
-    else
-        for (const Segment &segment : segments)
-            appendBlock(bubble.content, segment);
+    // fenced code first, then pull $$...$$ out of the remaining prose
+    for (const Segment &segment : splitMarkdown(text)) {
+        if (segment.isCode) {
+            bubble.content->addWidget(createCodeBlock(segment.language, segment.body));
+            continue;
+        }
+
+        for (const Segment &block : splitDisplayMath(segment.body)) {
+            if (block.isMath)
+                bubble.content->addWidget(createMathBlock(block.body));
+            else
+                bubble.content->addWidget(createTextBlock(block.body));
+        }
+    }
 
     m_columnLayout->insertWidget(m_columnLayout->count() - 1, bubble.row);
     if (isUser)
