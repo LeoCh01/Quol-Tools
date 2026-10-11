@@ -7,8 +7,6 @@ add_library(screen_plugin MODULE
     lib/SnipOverlay.hpp
     lib/SnipItem.cpp
     lib/SnipItem.hpp
-    ${QUOL_HOST_SOURCE_DIR}/ui/QuolPopupWindow.cpp
-    ${QUOL_HOST_SOURCE_DIR}/ui/TitleBar.cpp
 )
 
 target_include_directories(screen_plugin PRIVATE

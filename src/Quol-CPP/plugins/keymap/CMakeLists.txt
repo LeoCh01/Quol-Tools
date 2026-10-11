@@ -3,8 +3,6 @@ add_library(keymap_plugin MODULE
     Keymap.hpp
     lib/KeymapGroupDialog.cpp
     lib/KeymapGroupDialog.hpp
-    ${QUOL_HOST_SOURCE_DIR}/ui/QuolPopupWindow.cpp
-    ${QUOL_HOST_SOURCE_DIR}/ui/TitleBar.cpp
 )
 
 target_include_directories(keymap_plugin PRIVATE

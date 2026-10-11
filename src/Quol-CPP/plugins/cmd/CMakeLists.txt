@@ -3,8 +3,6 @@ add_library(cmd_plugin MODULE
     Cmd.hpp
     lib/CommandDialog.cpp
     lib/CommandDialog.hpp
-    ${QUOL_HOST_SOURCE_DIR}/ui/QuolPopupWindow.cpp
-    ${QUOL_HOST_SOURCE_DIR}/ui/TitleBar.cpp
 )
 
 target_include_directories(cmd_plugin PRIVATE

@@ -20,8 +20,6 @@ add_library(chat_plugin MODULE
     lib/providers/OpenAIProvider.hpp
     lib/providers/DeepSeekProvider.cpp
     lib/providers/DeepSeekProvider.hpp
-    ${QUOL_HOST_SOURCE_DIR}/ui/QuolPopupWindow.cpp
-    ${QUOL_HOST_SOURCE_DIR}/ui/TitleBar.cpp
 )
 
 target_include_directories(chat_plugin PRIVATE

@@ -18,8 +18,6 @@ endif()
 add_library(musicplayer_plugin MODULE
     MusicPlayer.cpp
     MusicPlayer.hpp
-    ${QUOL_HOST_SOURCE_DIR}/ui/QuolPopupWindow.cpp
-    ${QUOL_HOST_SOURCE_DIR}/ui/TitleBar.cpp
 )
 
 target_include_directories(musicplayer_plugin PRIVATE
