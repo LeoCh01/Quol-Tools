@@ -9,7 +9,6 @@
 #include <QMap>
 #include <QObject>
 #include <QPointer>
-#include <QStringList>
 #include <QVector>
 #include <functional>
 
@@ -45,10 +44,8 @@ private:
     using ParseResponse = QString (*)(const QJsonObject &response);
 
     void applyConfig();
-    void migrateLegacyKeys();
     void applyButtonIcons();
     void showProviderSelector();
-    void clearMessage();
     void updateIncludeImageUi();
     void submitPrompt(bool useExistingSnipImage = false);
 

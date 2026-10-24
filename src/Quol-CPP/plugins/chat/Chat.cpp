@@ -34,8 +34,8 @@
 #include <QRegularExpression>
 #include <QScreen>
 #include <QScrollArea>
+#include <QStringList>
 #include <QTimer>
-#include <QUrl>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -136,8 +136,6 @@ void Chat::initialize(const QString &pluginRootPath, const PluginConfig &pluginC
     m_cfg = pluginConfig;
     m_services = services;
 
-    migrateLegacyKeys();
-
     if (!m_pluginRootPath.isEmpty())
         QDir().mkpath(m_pluginRootPath + QStringLiteral("/res/logs"));
 
@@ -205,35 +203,6 @@ void Chat::applyConfig() {
 
     updatePromptPlaceholder();
     updateIncludeImageUi();
-}
-
-// legacy per-provider config keys from before endpoints[] existed
-void Chat::migrateLegacyKeys() {
-    static const QStringList kLegacyKeys = {
-        QStringLiteral("_.ollama_enabled"),
-        QStringLiteral("_.ollama_model"),
-        QStringLiteral("_.active_provider"),
-        QStringLiteral("_.providers"),
-        QStringLiteral("_.provider_index"),
-        QStringLiteral("_.active_endpoint"),
-        QStringLiteral("groq"),
-        QStringLiteral("gemini"),
-        QStringLiteral("providers"),
-        QStringLiteral("endpoint_order"),
-        QStringLiteral("endpoints"),
-        QStringLiteral("openrouter"),
-    };
-
-    bool removedAny = false;
-    for (const QString &key : kLegacyKeys) {
-        if (!m_cfg.get(key).isUndefined()) {
-            m_cfg.remove(key);
-            removedAny = true;
-        }
-    }
-
-    if (removedAny)
-        m_cfg.save();
 }
 
 void Chat::applyButtonIcons() {
@@ -420,19 +389,6 @@ void Chat::rebuildProviderRows() {
     }
 
     m_providerScrollLayout->addStretch();
-}
-
-void Chat::clearMessage() {
-    if (m_promptEdit)
-        m_promptEdit->clear();
-
-    m_history.clear();
-
-    if (m_output)
-        m_output->clear();
-
-    if (m_outputWindow)
-        m_outputWindow->close();
 }
 
 void Chat::updateIncludeImageUi() {

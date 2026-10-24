@@ -98,15 +98,15 @@ ChatOutput::ChatOutput(QWidget *parent) : QWidget(parent) {
     m_scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_scroll->viewport()->setStyleSheet("background:#15161a;");
 
-    m_column = new QWidget;
-    m_column->setStyleSheet("background:#15161a;");
+    auto *column = new QWidget;
+    column->setStyleSheet("background:#15161a;");
 
-    m_columnLayout = new QVBoxLayout(m_column);
+    m_columnLayout = new QVBoxLayout(column);
     m_columnLayout->setContentsMargins(14, 14, 14, 14);
     m_columnLayout->setSpacing(12);
     m_columnLayout->addStretch();
 
-    m_scroll->setWidget(m_column);
+    m_scroll->setWidget(column);
     outer->addWidget(m_scroll);
 }
 
@@ -196,12 +196,6 @@ ChatOutput::Bubble ChatOutput::createBubble(bool isUser) {
     }
 
     return {row, frame, content};
-}
-
-void ChatOutput::appendBlock(QVBoxLayout *content, const Segment &segment) {
-    content->addWidget(
-        segment.isCode ? createCodeBlock(segment.language, segment.body) : createTextBlock(segment.body)
-    );
 }
 
 QWidget *ChatOutput::createMathBlock(const QString &source) {
