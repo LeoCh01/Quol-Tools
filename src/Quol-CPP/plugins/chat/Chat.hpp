@@ -68,6 +68,7 @@ private:
     void showOutput();
 
     QString applyCommandTemplate(const QString &rawPrompt) const;
+    QString resolveOcrLanguage() const;
     QPixmap capturePrimaryScreenPixmap() const;
     static QString pixmapToBase64Png(const QPixmap &pixmap);
 

@@ -30,7 +30,7 @@
     "enabled": false,
     "model": "gemma3"
   },
-  "ocr_language": "",
+  "ocr_language": [["auto", "en-US", "en-GB", "zh-Hans-CN", "zh-Hant-TW", "ja-JP", "ko-KR"], 0],
   "config": {
     "history": true,
     "max_history": 10,

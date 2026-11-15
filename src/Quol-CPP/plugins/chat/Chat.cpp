@@ -553,7 +553,7 @@ void Chat::runOcr(const QString &imagePath) {
         imagePath,
     };
 
-    const QString language = m_cfg.get(QStringLiteral("ocr_language"), QString()).toString().trimmed();
+    const QString language = resolveOcrLanguage();
     if (!language.isEmpty())
         arguments << QStringLiteral("-Language") << language;
 
@@ -672,6 +672,23 @@ QString Chat::applyCommandTemplate(const QString &rawPrompt) const {
     result += tmpl.mid(cursor);
 
     return result.trimmed();
+}
+
+QString Chat::resolveOcrLanguage() const {
+    const QJsonValue value = m_cfg.get(QStringLiteral("ocr_language"), QString());
+
+    // combo-shaped value: [options, index]; plain string kept for backward compatibility
+    if (value.isArray()) {
+        const QJsonArray arr = value.toArray();
+        const QJsonArray options = arr.at(0).toArray();
+        const int index = arr.at(1).toInt();
+        if (index < 0 || index >= options.size())
+            return QString();
+        const QString language = options.at(index).toString().trimmed();
+        return language == QStringLiteral("auto") ? QString() : language;
+    }
+
+    return value.toString().trimmed();
 }
 
 QPixmap Chat::capturePrimaryScreenPixmap() const {
