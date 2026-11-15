@@ -7,6 +7,8 @@ add_library(chat_plugin MODULE
     lib/ChatOutput.hpp
     lib/LatexRenderer.cpp
     lib/LatexRenderer.hpp
+    lib/OcrTextOverlay.cpp
+    lib/OcrTextOverlay.hpp
     lib/SnipOverlay.cpp
     lib/SnipOverlay.hpp
     lib/providers/ProviderTypes.hpp

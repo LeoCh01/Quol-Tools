@@ -8,7 +8,9 @@
 #include <QJsonObject>
 #include <QMap>
 #include <QObject>
+#include <QPoint>
 #include <QPointer>
+#include <QRect>
 #include <QVector>
 #include <functional>
 
@@ -22,6 +24,7 @@ class QTimer;
 class QVBoxLayout;
 
 class SnipOverlay;
+class OcrTextOverlay;
 class QuolPopupWindow;
 class ChatOutput;
 
@@ -51,11 +54,13 @@ private:
 
     void startSnipMode();
     void cancelSnipMode();
-    void startOverlay(const QString &buttonLabel, std::function<void(const QPixmap &)> onSelected);
+    void startOverlay(
+        const QString &buttonLabel, std::function<void(const QPixmap &screenshot, const QRect &screenshotRect)> onSelected
+    );
     void onSnipSelected(const QPixmap &cropped);
 
     void startExtractMode();
-    void onExtractSelected(const QPixmap &cropped);
+    void onExtractSelected(const QPixmap &screenshot, const QRect &screenshotRect);
     void runOcr(const QString &imagePath);
     void onOcrFinished();
 
@@ -116,6 +121,8 @@ private:
     QuolPopupWindow *m_outputWindow = nullptr;
     ChatOutput *m_output = nullptr;
     QPointer<SnipOverlay> m_snipOverlay;
+    QPointer<OcrTextOverlay> m_textOverlay;
+    QRect m_ocrCropRect;
     QNetworkAccessManager *m_network = nullptr;
     QNetworkReply *m_reply = nullptr;
     QTimer *m_loadingTimer = nullptr;

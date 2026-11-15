@@ -16,7 +16,7 @@ class SnipOverlay final : public QWidget {
 public:
     explicit SnipOverlay(
         const QPixmap &screenshot,
-        std::function<void(const QPixmap &)> onSend,
+        std::function<void(const QPixmap &screenshot, const QRect &screenshotRect)> onSend,
         const QString &buttonLabel = QStringLiteral("Send"),
         QWidget *parent = nullptr
     );
@@ -37,7 +37,7 @@ private:
     void sendSelection();
 
     QPixmap m_screenshot;
-    std::function<void(const QPixmap &)> m_onSend;
+    std::function<void(const QPixmap &, const QRect &)> m_onSend;
 
     QPoint m_startPoint;
     QRect m_selectionRect;

@@ -24,8 +24,10 @@ QString buttonStyle(const QString &background, const QString &hover, bool darkTe
 }
 }  // namespace
 
-SnipOverlay::SnipOverlay(const QPixmap &screenshot, std::function<void(const QPixmap &)> onSend,
-                         const QString &buttonLabel, QWidget *parent)
+SnipOverlay::SnipOverlay(
+    const QPixmap &screenshot, std::function<void(const QPixmap &, const QRect &)> onSend, const QString &buttonLabel,
+    QWidget *parent
+)
     : QWidget(parent), m_screenshot(screenshot), m_onSend(std::move(onSend)) {
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
     setCursor(Qt::CrossCursor);
@@ -202,8 +204,7 @@ void SnipOverlay::sendSelection() {
     if (screenshotRect.isNull())
         return;
 
-    const QPixmap cropped = m_screenshot.copy(screenshotRect);
-    close();
     if (m_onSend)
-        m_onSend(cropped);
+        m_onSend(m_screenshot, screenshotRect);
+    close();
 }

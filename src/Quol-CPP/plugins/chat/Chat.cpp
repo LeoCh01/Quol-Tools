@@ -2,6 +2,7 @@
 
 #include "plugins/chat/lib/ChatConfig.hpp"
 #include "plugins/chat/lib/ChatOutput.hpp"
+#include "plugins/chat/lib/OcrTextOverlay.hpp"
 #include "plugins/chat/lib/SnipOverlay.hpp"
 #include "plugins/chat/lib/providers/DeepSeekProvider.hpp"
 #include "plugins/chat/lib/providers/GeminiProvider.hpp"
@@ -11,7 +12,6 @@
 #include "ui/QuolPopupWindow.hpp"
 
 #include <QBuffer>
-#include <QClipboard>
 #include <QDateTime>
 #include <QDir>
 #include <QFile>
@@ -149,6 +149,11 @@ void Chat::onUpdateConfig(const PluginConfig &pluginConfig) {
 
 void Chat::shutdown() {
     cancelSnipMode();
+
+    if (m_textOverlay) {
+        m_textOverlay->close();
+        m_textOverlay = nullptr;
+    }
 
     if (m_ocrProcess) {
         m_ocrProcess->kill();
@@ -468,7 +473,9 @@ void Chat::submitPrompt(bool useExistingSnipImage) {
 }
 
 void Chat::startSnipMode() {
-    startOverlay(QStringLiteral("Send"), [this](const QPixmap &cropped) { onSnipSelected(cropped); });
+    startOverlay(QStringLiteral("Send"), [this](const QPixmap &screenshot, const QRect &screenshotRect) {
+        onSnipSelected(screenshot.copy(screenshotRect));
+    });
 }
 
 void Chat::cancelSnipMode() {
@@ -476,7 +483,10 @@ void Chat::cancelSnipMode() {
         m_snipOverlay->close();
 }
 
-void Chat::startOverlay(const QString &buttonLabel, std::function<void(const QPixmap &)> onSelected) {
+void Chat::startOverlay(
+    const QString &buttonLabel,
+    std::function<void(const QPixmap &screenshot, const QRect &screenshotRect)> onSelected
+) {
     const QPixmap screenshot = capturePrimaryScreenPixmap();
     if (screenshot.isNull())
         return;
@@ -502,19 +512,29 @@ void Chat::onSnipSelected(const QPixmap &cropped) {
 }
 
 void Chat::startExtractMode() {
-    startOverlay(QStringLiteral("Extract"), [this](const QPixmap &cropped) { onExtractSelected(cropped); });
+    startOverlay(QStringLiteral("Extract"), [this](const QPixmap &screenshot, const QRect &screenshotRect) {
+        onExtractSelected(screenshot, screenshotRect);
+    });
 }
 
-void Chat::onExtractSelected(const QPixmap &cropped) {
-    if (cropped.isNull())
+void Chat::onExtractSelected(const QPixmap &screenshot, const QRect &screenshotRect) {
+    if (screenshot.isNull() || screenshotRect.isNull())
         return;
 
     const QString path = QDir::tempPath() + QStringLiteral("/quol_ocr_")
                          + QString::number(QRandomGenerator::global()->generate()) + QStringLiteral(".png");
-    if (!cropped.save(path, "PNG"))
+    if (!screenshot.copy(screenshotRect).save(path, "PNG"))
         return;
 
     m_pendingOcrPath = path;
+    m_ocrCropRect = screenshotRect;
+
+    // the screenshot stays on screen; recognized words become selectable once OCR finishes
+    m_textOverlay = new OcrTextOverlay(screenshot, screenshotRect);
+    m_textOverlay->showFullScreen();
+    m_textOverlay->raise();
+    m_textOverlay->activateWindow();
+
     runOcr(path);
 }
 
@@ -522,20 +542,24 @@ void Chat::runOcr(const QString &imagePath) {
     if (m_ocrProcess)
         return;
 
+    QStringList arguments{
+        QStringLiteral("-NoProfile"),
+        QStringLiteral("-NoLogo"),
+        QStringLiteral("-ExecutionPolicy"),
+        QStringLiteral("Bypass"),
+        QStringLiteral("-File"),
+        m_pluginRootPath + QStringLiteral("/res/ocr/ocr.ps1"),
+        QStringLiteral("-ImagePath"),
+        imagePath,
+    };
+
+    const QString language = m_cfg.get(QStringLiteral("ocr_language"), QString()).toString().trimmed();
+    if (!language.isEmpty())
+        arguments << QStringLiteral("-Language") << language;
+
     m_ocrProcess = new QProcess(this);
     m_ocrProcess->setProgram(QStringLiteral("powershell.exe"));
-    m_ocrProcess->setArguments(
-        QStringList{
-            QStringLiteral("-NoProfile"),
-            QStringLiteral("-NoLogo"),
-            QStringLiteral("-ExecutionPolicy"),
-            QStringLiteral("Bypass"),
-            QStringLiteral("-File"),
-            m_pluginRootPath + QStringLiteral("/res/ocr/ocr.ps1"),
-            QStringLiteral("-ImagePath"),
-            imagePath,
-        }
-    );
+    m_ocrProcess->setArguments(arguments);
     QObject::connect(
         m_ocrProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &Chat::onOcrFinished
     );
@@ -545,20 +569,55 @@ void Chat::runOcr(const QString &imagePath) {
 void Chat::onOcrFinished() {
     QProcess *process = m_ocrProcess;
     m_ocrProcess = nullptr;
+    if (!process)
+        return;
 
-    const bool ok = process && process->exitStatus() == QProcess::NormalExit && process->exitCode() == 0;
-    const QString text = ok ? QString::fromUtf8(process->readAllStandardOutput()).trimmed() : QString();
-
-    if (process)
-        process->deleteLater();
+    const bool ok = process->exitStatus() == QProcess::NormalExit && process->exitCode() == 0;
+    const int exitCode = process->exitCode();
+    const QByteArray out = process->readAllStandardOutput();
+    const QString errorText = QString::fromUtf8(process->readAllStandardError()).trimmed();
+    process->deleteLater();
 
     if (!m_pendingOcrPath.isEmpty()) {
         QFile::remove(m_pendingOcrPath);
         m_pendingOcrPath.clear();
     }
 
-    if (!text.isEmpty())
-        QGuiApplication::clipboard()->setText(text);
+    if (!ok) {
+        if (m_textOverlay)
+            m_textOverlay->setFailed(
+                errorText.isEmpty() ? QStringLiteral("ocr exited with code %1").arg(exitCode) : errorText
+            );
+        return;
+    }
+
+    QVector<OcrTextOverlay::Word> words;
+
+    const QJsonDocument doc = QJsonDocument::fromJson(out);
+    if (doc.isObject()) {
+        const QJsonArray lines = doc.object().value(QStringLiteral("lines")).toArray();
+        int lineIndex = 0;
+        for (const QJsonValue &lineValue : lines) {
+            const QJsonObject lineObj = lineValue.toObject();
+            for (const QJsonValue &wordValue : lineObj.value(QStringLiteral("words")).toArray()) {
+                const QJsonObject wordObj = wordValue.toObject();
+                const QJsonArray rect = wordObj.value(QStringLiteral("rect")).toArray();
+                if (rect.size() != 4)
+                    continue;
+                OcrTextOverlay::Word word;
+                word.text = wordObj.value(QStringLiteral("text")).toString();
+                word.line = lineIndex;
+                word.rect = QRect(rect.at(0).toInt(), rect.at(1).toInt(), rect.at(2).toInt(), rect.at(3).toInt())
+                                .translated(m_ocrCropRect.topLeft());
+                if (!word.text.isEmpty() && word.rect.width() > 0 && word.rect.height() > 0)
+                    words.append(word);
+            }
+            ++lineIndex;
+        }
+    }
+
+    if (m_textOverlay)
+        m_textOverlay->setResult(words);
 }
 
 void Chat::ensureOutputWindow() {

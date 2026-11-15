@@ -2,7 +2,7 @@
   "_": {
     "default_geometry": [10, 930, 500, 0],
     "name": "Chat",
-    "version": 6,
+    "version": 7,
     "dependency": "5.2.0",
     "description": "Chat actions row",
     "include_image": true,
@@ -30,6 +30,7 @@
     "enabled": false,
     "model": "gemma3"
   },
+  "ocr_language": "",
   "config": {
     "history": true,
     "max_history": 10,
