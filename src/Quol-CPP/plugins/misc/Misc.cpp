@@ -5,6 +5,7 @@
 #include "plugins/misc/lib/ToolBase.hpp"
 
 #include <QPushButton>
+#include <QElapsedTimer>
 #include <QVBoxLayout>
 #include <QWidget>
 
@@ -33,7 +34,10 @@ void Misc::initialize(const QString &pluginRootPath, const PluginConfig &pluginC
     m_cfg = pluginConfig;
     m_services = services;
 
+    QElapsedTimer t;
+    t.start();
     auto *sw = new StopwatchWidget(pluginRootPath);
+    qInfo() << "misc: StopwatchWidget" << t.restart() << "ms";
     connect(sw, &StopwatchWidget::closed, this, [this]() {
         if (!m_tools.isEmpty() && m_tools[0].btn)
             m_tools[0].btn->setChecked(false);
@@ -41,9 +45,11 @@ void Misc::initialize(const QString &pluginRootPath, const PluginConfig &pluginC
     m_tools.append({sw, nullptr});
 
     auto *dw = new DiceWidget(pluginRootPath);
+    qInfo() << "misc: DiceWidget" << t.restart() << "ms";
     m_tools.append({dw, nullptr});
 
     auto *anime = new AnimeWidget(pluginRootPath);
+    qInfo() << "misc: AnimeWidget" << t.elapsed() << "ms";
     connect(anime, &AnimeWidget::closed, this, [this, anime]() {
         for (int i = 0; i < m_tools.size(); ++i) {
             if (m_tools[i].tool == anime && m_tools[i].btn) {

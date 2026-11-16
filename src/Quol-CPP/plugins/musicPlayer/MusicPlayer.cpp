@@ -71,12 +71,7 @@ bool SoundOwner::init(ma_engine *engine, const QString &filePath) {
     sound = new ma_sound();
     const QByteArray pathBytes = filePath.toUtf8();
     const ma_result result = ma_sound_init_from_file(
-        engine,
-        pathBytes.constData(),
-        MA_SOUND_FLAG_NO_SPATIALIZATION | MA_SOUND_FLAG_NO_PITCH,
-        nullptr,
-        nullptr,
-        sound
+        engine, pathBytes.constData(), MA_SOUND_FLAG_NO_SPATIALIZATION | MA_SOUND_FLAG_NO_PITCH, nullptr, nullptr, sound
     );
     if (result != MA_SUCCESS) {
         delete sound;
@@ -90,12 +85,14 @@ bool SoundOwner::init(ma_engine *engine, const QString &filePath) {
 }  // namespace music
 
 qint64 MusicPlayer::framesToMs(quint64 frames, quint32 sampleRate) {
-    if (sampleRate == 0) return 0;
+    if (sampleRate == 0)
+        return 0;
     return static_cast<qint64>(frames) * 1000 / sampleRate;
 }
 
 quint64 MusicPlayer::msToFrames(qint64 ms, quint32 sampleRate) {
-    if (sampleRate == 0) return 0;
+    if (sampleRate == 0)
+        return 0;
     return static_cast<quint64>(ms) * sampleRate / 1000;
 }
 
@@ -193,9 +190,7 @@ QWidget *MusicPlayer::createWidget(QWidget *parent) {
     m_seekSlider->setRange(0, 0);
     m_seekSlider->setEnabled(false);
     m_seekSlider->setToolTip(QStringLiteral("Seek"));
-    connect(m_seekSlider, &QSlider::sliderPressed, this, [this]() {
-        m_seekSliderPressed = true;
-    });
+    connect(m_seekSlider, &QSlider::sliderPressed, this, [this]() { m_seekSliderPressed = true; });
     connect(m_seekSlider, &QSlider::sliderReleased, this, [this]() {
         m_seekSliderPressed = false;
         if (m_sound && m_sound->sound)
@@ -240,17 +235,6 @@ void MusicPlayer::initialize(const QString &pluginRootPath, const PluginConfig &
     m_pluginRootPath = pluginRootPath;
     m_cfg = pluginConfig;
 
-    m_engine = std::make_unique<music::EngineOwner>();
-    if (!m_engine->init()) {
-        m_songLabel->setText(QStringLiteral("Failed to initialize audio engine"));
-        m_engine.reset();
-        return;
-    }
-
-    m_sampleRate = ma_engine_get_sample_rate(m_engine->engine);
-    float vol = m_cfg.get("_.volume", 50).toInt() / 100.0f;
-    ma_engine_set_volume(m_engine->engine, vol);
-
     m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &MusicPlayer::onTick);
     m_timer->start(200);
@@ -278,8 +262,21 @@ void MusicPlayer::shutdown() {
 }
 
 void MusicPlayer::playFile(int index) {
-    if (index < 0 || index >= m_songList.size() || !m_engine)
+    if (index < 0 || index >= m_songList.size())
         return;
+
+    if (!m_engine) {
+        m_engine = std::make_unique<music::EngineOwner>();
+        if (!m_engine->init()) {
+            m_engine.reset();
+            if (m_songLabel)
+                m_songLabel->setText(QStringLiteral("Failed to initialize audio engine"));
+            return;
+        }
+        m_sampleRate = ma_engine_get_sample_rate(m_engine->engine);
+        float vol = m_cfg.get("_.volume", 50).toInt() / 100.0f;
+        ma_engine_set_volume(m_engine->engine, vol);
+    }
 
     m_currentIndex = index;
     m_cfg.set("_.last_index", index);
@@ -427,9 +424,10 @@ void MusicPlayer::updateTimeLabel() {
         return;
     }
     ma_uint64 pos = ma_sound_get_time_in_pcm_frames(m_sound->sound);
-    m_timeLabel->setText(formatTime(framesToMs(pos, m_sampleRate))
-                         + QStringLiteral(" / ")
-                         + formatTime(framesToMs(m_soundLengthFrames, m_sampleRate)));
+    m_timeLabel->setText(
+        formatTime(framesToMs(pos, m_sampleRate)) + QStringLiteral(" / ")
+        + formatTime(framesToMs(m_soundLengthFrames, m_sampleRate))
+    );
 }
 
 void MusicPlayer::updateSongLabel() {
@@ -464,8 +462,9 @@ void MusicPlayer::setElidedText(const QString &text) {
     int lo = 0, hi = text.length();
     while (lo < hi) {
         int mid = (lo + hi + 1) / 2;
-        QRect rr = fm.boundingRect(QRect(0, 0, w, maxH), Qt::AlignLeft | Qt::TextWordWrap,
-                                    text.left(mid) + QStringLiteral("..."));
+        QRect rr = fm.boundingRect(
+            QRect(0, 0, w, maxH), Qt::AlignLeft | Qt::TextWordWrap, text.left(mid) + QStringLiteral("...")
+        );
         if (rr.height() <= maxH)
             lo = mid;
         else
@@ -491,7 +490,7 @@ void MusicPlayer::scanDirectories() {
         if (!dir.exists())
             continue;
 
-        const auto files = dir.entryList({ QStringLiteral("*.mp3") }, QDir::Files, QDir::Name);
+        const auto files = dir.entryList({QStringLiteral("*.mp3")}, QDir::Files, QDir::Name);
         for (const auto &file : files)
             m_songList.append(dir.absoluteFilePath(file));
     }
