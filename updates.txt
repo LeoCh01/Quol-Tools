@@ -1,6 +1,7 @@
 TODO
 
 DONE
+- draw-3: ctrl/alt/shift modifiers and color presets
 - chat-v6: better output md, latex, code cleanup
 - screen-v1: new plugin
 - misc-v6: move shader to screen plugin

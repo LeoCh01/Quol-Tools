@@ -4,15 +4,31 @@
 #include "plugins/draw/lib/DrawOverlay.hpp"
 
 #include <QApplication>
+#include <QHash>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QScreen>
 #include <QSlider>
-#include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
+
+namespace {
+
+Qt::Key resolveModifier(const QString &token) {
+    static const QHash<QString, Qt::Key> map = {
+        {QStringLiteral("ctrl"), Qt::Key_Control},
+        {QStringLiteral("control"), Qt::Key_Control},
+        {QStringLiteral("shift"), Qt::Key_Shift},
+        {QStringLiteral("alt"), Qt::Key_Alt},
+        {QStringLiteral("win"), Qt::Key_Meta},
+        {QStringLiteral("meta"), Qt::Key_Meta}
+    };
+    return map.value(token.trimmed().toLower(), Qt::Key_unknown);
+}
+
+}  // namespace
 
 // ---------------------------------------------------------------------------
 // IQuolPlugin lifecycle
@@ -28,6 +44,7 @@ void Draw::initialize(const QString &rootPath, const PluginConfig &pluginConfig,
 
     m_overlay = new DrawOverlay();
     connect(m_overlay, &DrawOverlay::stopRequested, this, &Draw::toggleDrawing);
+    connect(m_overlay, &DrawOverlay::colorPicked, this, &Draw::onColorChanged);
 
     applyHotkeys();
 }
@@ -144,6 +161,23 @@ void Draw::applyHotkeys() {
     const QString toggleCombo = m_cfg.get(QStringLiteral("draw_toggle")).toString().trimmed().toLower();
     if (!toggleCombo.isEmpty())
         m_toggleHotkeyId = im->addHotkey(toggleCombo, [this]() { toggleDrawing(); }, true);
+
+    if (m_overlay) {
+        m_overlay->setModifierKeys(
+            resolveModifier(m_cfg.get(QStringLiteral("straight_line")).toString()),
+            resolveModifier(m_cfg.get(QStringLiteral("draw_box")).toString()),
+            resolveModifier(m_cfg.get(QStringLiteral("eyedropper")).toString())
+        );
+
+        // Fixed 6 slots so digit N always maps to presets.N, even with gaps
+        QList<QColor> presets;
+        for (int i = 1; i <= 6; ++i) {
+            presets.append(QColor::fromString(
+                m_cfg.get(QStringLiteral("presets.%1").arg(i)).toString().trimmed()
+            ));
+        }
+        m_overlay->setPresetColors(presets);
+    }
 
     // Undo hotkey is registered in toggleDrawing() when drawing starts
 }
