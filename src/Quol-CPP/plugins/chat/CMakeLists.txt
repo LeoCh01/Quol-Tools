@@ -1,4 +1,4 @@
-add_library(chat_plugin MODULE
+quol_add_plugin(chat_plugin "chat"
     Chat.cpp
     Chat.hpp
     lib/ChatConfig.cpp
@@ -22,43 +22,5 @@ add_library(chat_plugin MODULE
     lib/providers/OpenAIProvider.hpp
     lib/providers/DeepSeekProvider.cpp
     lib/providers/DeepSeekProvider.hpp
+    LIBRARIES Qt${QT_VERSION_MAJOR}::Network
 )
-
-target_include_directories(chat_plugin PRIVATE
-    ${QUOL_HOST_SOURCE_DIR}
-    ${QUOL_HOST_ROOT}
-)
-
-target_link_libraries(chat_plugin PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network quol_core)
-
-set_target_properties(chat_plugin PROPERTIES
-    PREFIX ""
-    OUTPUT_NAME "chat"
-    AUTOMOC_COMPILER_PREDEFINES OFF
-)
-
-function(chat_stage_res res_dir)
-    add_custom_command(TARGET chat_plugin POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${res_dir}/res/img
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${res_dir}/res/ocr
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${res_dir}/res/logs
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_CURRENT_SOURCE_DIR}/res/config.json
-            ${res_dir}/res/config.json
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_CURRENT_SOURCE_DIR}/res/img
-            ${res_dir}/res/img
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_CURRENT_SOURCE_DIR}/res/ocr/ocr.ps1
-            ${res_dir}/res/ocr/ocr.ps1
-    )
-endfunction()
-
-add_custom_command(TARGET chat_plugin POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:chat_plugin>
-        ${QUOL_RUNTIME_DIR}/plugins/chat/$<TARGET_FILE_NAME:chat_plugin>
-)
-
-chat_stage_res($<TARGET_FILE_DIR:chat_plugin>)
-chat_stage_res(${QUOL_RUNTIME_DIR}/plugins/chat)

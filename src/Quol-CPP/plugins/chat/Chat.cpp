@@ -484,8 +484,7 @@ void Chat::cancelSnipMode() {
 }
 
 void Chat::startOverlay(
-    const QString &buttonLabel,
-    std::function<void(const QPixmap &screenshot, const QRect &screenshotRect)> onSelected
+    const QString &buttonLabel, std::function<void(const QPixmap &screenshot, const QRect &screenshotRect)> onSelected
 ) {
     const QPixmap screenshot = capturePrimaryScreenPixmap();
     if (screenshot.isNull())

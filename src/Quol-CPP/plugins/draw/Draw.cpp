@@ -4,8 +4,8 @@
 #include "plugins/draw/lib/DrawOverlay.hpp"
 
 #include <QApplication>
-#include <QHash>
 #include <QHBoxLayout>
+#include <QHash>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
@@ -172,9 +172,7 @@ void Draw::applyHotkeys() {
         // Fixed 6 slots so digit N always maps to presets.N, even with gaps
         QList<QColor> presets;
         for (int i = 1; i <= 6; ++i) {
-            presets.append(QColor::fromString(
-                m_cfg.get(QStringLiteral("presets.%1").arg(i)).toString().trimmed()
-            ));
+            presets.append(QColor::fromString(m_cfg.get(QStringLiteral("presets.%1").arg(i)).toString().trimmed()));
         }
         m_overlay->setPresetColors(presets);
     }
